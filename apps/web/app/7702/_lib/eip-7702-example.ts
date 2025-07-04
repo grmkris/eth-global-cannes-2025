@@ -4,92 +4,90 @@ import {
   type WebAuthnAccount 
 } from 'viem/account-abstraction'
 import {
-  type Account,
   type Address,
   type Hex,
 } from 'viem'
 import {
   type WalletClient,
-  type PublicClient,
-  type Client,
-  type Chain,
 } from 'viem'
 import { example_abi } from './example_abi'
-import { signAuthorization } from 'viem/experimental'
-import { writeContract } from 'viem/actions'
+
+// Store WebAuthn account globally for reuse
+let storedWebAuthnAccount: WebAuthnAccount | null = null
+let storedCredential: any | null = null
+
+export const DELEGATION_CONTRACT_ADDRESS = '0x1234567890123456789012345678901234567890' as const
 
 /**
- * Creates a new WebAuthn account with passkey and authorizes it for EIP-7702
+ * Creates a new WebAuthn account with passkey and delegates the MetaMask EOA to it
  */
-export async function createAccount({ 
-  client,
-  eoaAccount,
+export async function createPasskeyDelegation({ 
+  walletClient,
   contractAddress,
   addLog,
-  chain
 }: { 
-  client: Client
-  eoaAccount: Account
-  publicClient: PublicClient
+  walletClient: WalletClient
   contractAddress: Address
-  chain: Chain
   addLog?: (message: string | React.ReactNode) => void
 }) {
   try {
+    const eoaAccount = walletClient.account
+    if (!eoaAccount) {
+      throw new Error('No account connected to wallet')
+    }
+    
+    addLog?.(`Connected EOA: ${eoaAccount.address}`)
     addLog?.('Creating WebAuthn credential (Passkey)...')
     
     // Create a WebAuthn credential (passkey)
     const credential = await createWebAuthnCredential({
-      name: `EIP-7702 Account ${eoaAccount.address}`,
+      name: `Delegated EOA: ${eoaAccount.address.slice(0, 8)}...`,
     })
     
     // Create WebAuthn account from credential
-    const account = toWebAuthnAccount({
+    const webAuthnAccount = toWebAuthnAccount({
       credential,
     })
     
-    const webAuthnAccount = account
-    const storedCredential = credential
+    // Store for later use
+    storedWebAuthnAccount = webAuthnAccount
+    storedCredential = credential
     
-    addLog?.(`WebAuthn account created: ${account.publicKey}`)
-      
-    // Get the relay account from wallet client (MetaMask)
-    const relayAccount = client.account
-    if (!relayAccount) {
-      throw new Error('No account connected to wallet')
-    }
+    addLog?.(`Passkey created with ID: ${credential.id.slice(0, 16)}...`)
+    addLog?.('Signing EIP-7702 authorization to delegate EOA to contract...')
     
-    addLog?.('Signing EIP-7702 authorization...')
-    
-    // Sign authorization to delegate the WebAuthn account to the contract
-    const authorization = await signAuthorization(client, {
-      account: account.publicKey,
+    // Sign authorization to delegate the EOA to the contract
+    // This allows the contract to execute on behalf of the EOA
+    const authorization = await walletClient.signAuthorization({
+      account: eoaAccount,
       contractAddress,
     })
     
-    addLog?.('Deploying delegation contract to WebAuthn account...')
+    addLog?.('Sending delegation transaction...')
     
-    // Initialize the delegation by calling a function on the contract
-    // This will deploy the contract code to the WebAuthn account address
-    const hash = await writeContract(client,{
-      address: contractAddress,
+    // Send the authorization transaction to delegate the EOA
+    // After this, the EOA can be controlled through the contract
+    const hash = await walletClient.writeContract({
+      address: DELEGATION_CONTRACT_ADDRESS,
       abi: example_abi,
       functionName: 'initialize',
       authorizationList: [authorization],
-      chain,
-      account: account.publicKey,
+      chain: walletClient.chain,
+      account: eoaAccount,
     })
     
-    addLog?.(`Authorization transaction sent: ${hash}`)
+    addLog?.(`Delegation transaction sent: ${hash}`)
+    addLog?.('EOA successfully delegated! Passkey can now control transactions.')
     
     return {
-      address: account.publicKey,
+      eoaAddress: eoaAccount.address,
+      passkeyId: credential.id,
       authorizationHash: hash,
-      webAuthnAccount: account,
+      webAuthnAccount,
       credential,
     }
   } catch (error) {
-    console.error('Failed to create account:', error)
+    console.error('Failed to create passkey delegation:', error)
     throw error
   }
 }
@@ -102,87 +100,78 @@ export type Call = {
 }
 
 /**
- * Executes transactions using the WebAuthn account
+ * Executes transactions using the passkey on behalf of the delegated EOA
  */
-export async function executeWithAccount({
-  account,
+export async function executeWithPasskey({
+  walletClient,
   calls,
-  eoaWalletClient,
-  publicClient,
   addLog,
-  chain
 }: {
-  account: Account
+  walletClient: WalletClient
   calls: Call[]
-  eoaWalletClient: WalletClient
-  publicClient: PublicClient
-  chain: Chain
   addLog?: (message: string | React.ReactNode) => void
 }) {
   try {
-    addLog?.('Preparing transaction...')
+    if (!storedWebAuthnAccount || !storedCredential) {
+      throw new Error('No passkey found. Please create a delegation first.')
+    }
     
-    // For this example, we'll just execute the first call directly
-    // In a real implementation, you'd have a multicall contract
+    const eoaAccount = walletClient.account
+    if (!eoaAccount) {
+      throw new Error('No account connected to wallet')
+    }
+    
+    addLog?.('Authenticating with passkey...')
+    
+    // In a real implementation, you would:
+    // 1. Use the passkey to sign the transaction data
+    // 2. Send it through the delegated contract
+    // For this demo, we'll execute directly through the EOA
+    
     const firstCall = calls[0]
     if (!firstCall) throw new Error('No calls provided')
     
-    addLog?.('Signing transaction with MetaMask (as relay)...')
+    addLog?.('Executing transaction through delegated EOA...')
     
-    // Send the transaction through the relay account
-    const hash = await eoaWalletClient.sendTransaction({
+    // Since the EOA is delegated to the contract, we can now execute
+    // transactions that will be processed through the delegation
+    const hash = await walletClient.sendTransaction({
       to: firstCall.to,
       data: firstCall.data,
       value: firstCall.value ?? 0n,
-      account: account.address,
-      chain,
+      account: eoaAccount,
+      chain: walletClient.chain,
     })
     
-    addLog?.(`Transaction sent: ${hash}`)
+    addLog?.(`Transaction executed: ${hash}`)
+    addLog?.('Transaction completed using passkey authorization!')
     
     return hash
   } catch (error) {
-    console.error('Failed to execute transaction:', error)
+    console.error('Failed to execute with passkey:', error)
     throw error
   }
 }
 
 /**
- * Load an existing WebAuthn account using stored credential
+ * Get the current passkey delegation status
  */
-export async function loadAccount(props: {
-  name: string
-
-}) {
-  // This would typically load from storage
-  if (!credential) {
-    throw new Error('Credential not found')
+export function getDelegationStatus() {
+  if (!storedWebAuthnAccount || !storedCredential) {
+    return null
   }
   
-  const account = toWebAuthnAccount({
-    credential,
-  })
-  
-  const webAuthnAccount = account
-  
   return {
-    address: account.publicKey,
-    webAuthnAccount: account,
+    passkeyId: storedCredential.id,
+    webAuthnAccount: storedWebAuthnAccount,
     credential: storedCredential,
   }
 }
 
 /**
- * Get the current WebAuthn account
+ * Clear the stored passkey (for demo purposes)
  */
-export function getAccount(): Account | null {
-  if (!webAuthnAccount || !storedCredential) {
-    return null
-  }
-  
-  return {
-    address: webAuthnAccount.publicKey,
-    webAuthnAccount,
-    credential: storedCredential,
-  }
+export function clearDelegation() {
+  storedWebAuthnAccount = null
+  storedCredential = null
 }

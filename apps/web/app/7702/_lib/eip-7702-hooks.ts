@@ -1,113 +1,96 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useChainId, useClient, usePublicClient, useWalletClient } from 'wagmi'
+import { usePublicClient, useWalletClient } from 'wagmi'
 import { type Address } from 'viem'
 import {
-  createAccount,
-  executeWithAccount,
-  getAccount,
-  loadAccount,
-  type Account,
-  type Calls,
+  createPasskeyDelegation,
+  executeWithPasskey,
+  getDelegationStatus,
+  clearDelegation,
+  type Call,
 } from './eip-7702-example'
 
-export function useCreateEIP7702Account({
+export function useCreatePasskeyDelegation({
   contractAddress,
   addLog,
 }: {
   contractAddress: Address
   addLog?: (message: string | React.ReactNode) => void
 }) {
-  const publicClient = usePublicClient()
-  const client = useClient()
   const { data: walletClient } = useWalletClient()
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationKey: ['createEIP7702Account'],
+    mutationKey: ['createPasskeyDelegation'],
     mutationFn: async () => {
-      if (!walletClient || !publicClient) {
+      if (!walletClient) {
         throw new Error('Wallet not connected')
-      }
-      if (!client) {
-        throw new Error('Client not connected')
       }
       if (!walletClient.account) {
         throw new Error('Wallet account not connected')
       }
-      const account = await createAccount({
-        client,
-        eoaAccount: walletClient.account,
-        publicClient,
+      
+      const result = await createPasskeyDelegation({
+        walletClient,
         contractAddress,
         addLog,
-        chain: walletClient.chain,
       })
       
-      // Invalidate the account query to refetch
-      await queryClient.invalidateQueries({ queryKey: ['eip7702Account'] })
+      // Invalidate the delegation query to refetch
+      await queryClient.invalidateQueries({ queryKey: ['passkeyDelegation'] })
       
-      return account
+      return result
     },
     onError: (error) => {
-      console.error('Failed to create EIP-7702 account:', error)
+      console.error('Failed to create passkey delegation:', error)
     },
   })
 }
 
-export function useExecuteEIP7702({
+export function useExecuteWithPasskey({
   addLog,
 }: {
   addLog?: (message: string | React.ReactNode) => void
 }) {
-  const publicClient = usePublicClient()
   const { data: walletClient } = useWalletClient()
   
   return useMutation({
-    mutationKey: ['executeEIP7702'],
-    mutationFn: async ({
-      account,
-      calls,
-    }: {
-      account: Account
-      calls: Calls
-    }) => {
-      if (!walletClient || !publicClient) {
+    mutationKey: ['executeWithPasskey'],
+    mutationFn: async ({ calls }: { calls: Call[] }) => {
+      if (!walletClient) {
         throw new Error('Wallet not connected')
       }
       
-      return executeWithAccount({
-        account,
+      return executeWithPasskey({
+        walletClient,
         calls,
-        eoaWalletClient: walletClient,
-        publicClient,
         addLog,
-        chain: walletClient.chain,
       })
     },
     onError: (error) => {
-      console.error('Failed to execute transaction:', error)
+      console.error('Failed to execute with passkey:', error)
     },
   })
 }
 
-export function useEIP7702Account() {
+export function usePasskeyDelegation() {
   return useQuery({
-    queryKey: ['eip7702Account'],
-    queryFn: () => getAccount(),
+    queryKey: ['passkeyDelegation'],
+    queryFn: () => getDelegationStatus(),
     staleTime: Infinity,
   })
 }
 
-export function useLoadEIP7702Account() {
+export function useClearDelegation() {
+  const queryClient = useQueryClient()
+  
   return useMutation({
-    mutationKey: ['loadEIP7702Account'],
-    mutationFn: async ({ credentialId }: { credentialId: string }) => {
-      const account = await loadAccount({ credentialId })
-      
-      return account
+    mutationKey: ['clearDelegation'],
+    mutationFn: async () => {
+      clearDelegation()
+      await queryClient.invalidateQueries({ queryKey: ['passkeyDelegation'] })
     },
     onError: (error) => {
-      console.error('Failed to load account:', error)
+      console.error('Failed to clear delegation:', error)
     },
   })
 }

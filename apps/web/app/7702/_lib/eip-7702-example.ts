@@ -1,21 +1,47 @@
-import { privateKeyToAccount } from 'viem/accounts'
-import { walletClient } from './config'
-import { abi, contractAddress } from './contract'
+import { example_abi } from './example_abi'
+import type { Account, Address, Chain, WalletClient } from 'viem'
  
-const eoa = privateKeyToAccount('0x...')
- 
-// 1. Authorize designation of the Contract onto the EOA.
-const authorization = await walletClient.signAuthorization({
-  account: eoa,
-  contractAddress,
-})
- 
-// 2. Designate the Contract on the EOA, and invoke the 
-//    `initialize` function.
-const hash = await walletClient.writeContract({
-  abi,
-  address: eoa.address,
-  authorizationList: [authorization],
-  //                  ↑ 3. Pass the Authorization as a parameter.
-  functionName: 'initialize',
-})
+const contractAddress = '0x...'
+
+export const initialize = async (props: {
+  walletClient: WalletClient
+  eoa: Account
+  chain: Chain
+}) => {
+  const { walletClient, eoa } = props;
+  const authorization = await walletClient.signAuthorization({
+    account: eoa,
+    contractAddress,
+  });
+  const result = await walletClient.writeContract({
+    abi: example_abi,
+    account: eoa,
+    address: contractAddress,
+    authorizationList: [authorization],
+    functionName: 'initialize',
+    chain: props.chain,
+  });   
+  return result;
+}
+
+export const createPing = async (props: {
+  walletClient: WalletClient
+  eoa: Account
+  contractAddress: Address
+  chain: Chain
+}) => {
+  const { walletClient, eoa, contractAddress, chain } = props
+  const authorization = await walletClient.signAuthorization({
+    account: eoa,
+    contractAddress,
+  });
+  const hash = await walletClient.writeContract({
+    abi: example_abi,
+    account: eoa,
+    address: contractAddress,
+    authorizationList: [authorization],
+    functionName: 'ping',
+    chain: props.chain,
+  })
+  return hash;
+}

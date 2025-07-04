@@ -21,6 +21,7 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
+      "@reown/appkit",
       "core-js-pure",
       "sharp"
     ]

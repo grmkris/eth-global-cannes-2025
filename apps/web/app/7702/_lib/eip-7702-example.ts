@@ -1,53 +1,35 @@
 import { 
   createWebAuthnCredential, 
   toWebAuthnAccount,
-  ,
   type WebAuthnAccount 
 } from 'viem/account-abstraction'
 import {
+  type Account,
   type Address,
   type Hex,
-  encodeFunctionData,
 } from 'viem'
-import {
-  signAuthorization,
-  type Authorization,
-} from 'viem/experimental'
 import {
   type WalletClient,
   type PublicClient,
+  type Client,
   type Chain,
 } from 'viem'
 import { example_abi } from './example_abi'
-
-// Store the WebAuthn account and credential
-let webAuthnAccount: WebAuthnAccount | null = null
-let storedCredential: any | null = null
-
-export type Account = {
-  address: Address
-  authorizationHash?: Hex
-  webAuthnAccount: WebAuthnAccount
-  credential: any
-}
-
-export type Calls = { 
-  to: Address
-  value?: bigint
-  data?: Hex
-}[]
+import { signAuthorization } from 'viem/experimental'
+import { writeContract } from 'viem/actions'
 
 /**
  * Creates a new WebAuthn account with passkey and authorizes it for EIP-7702
  */
 export async function createAccount({ 
-  eoaWalletClient,
-  publicClient,
+  client,
+  eoaAccount,
   contractAddress,
   addLog,
   chain
 }: { 
-  eoaWalletClient: WalletClient
+  client: Client
+  eoaAccount: Account
   publicClient: PublicClient
   contractAddress: Address
   chain: Chain
@@ -58,7 +40,7 @@ export async function createAccount({
     
     // Create a WebAuthn credential (passkey)
     const credential = await createWebAuthnCredential({
-      name: `EIP-7702 Account ${eoaWalletClient.account}`,
+      name: `EIP-7702 Account ${eoaAccount.address}`,
     })
     
     // Create WebAuthn account from credential
@@ -66,13 +48,13 @@ export async function createAccount({
       credential,
     })
     
-    webAuthnAccount = account
-    storedCredential = credential
+    const webAuthnAccount = account
+    const storedCredential = credential
     
-      addLog?.(`WebAuthn account created: ${account.publicKey}`)
+    addLog?.(`WebAuthn account created: ${account.publicKey}`)
       
     // Get the relay account from wallet client (MetaMask)
-    const relayAccount = eoaWalletClient.account
+    const relayAccount = client.account
     if (!relayAccount) {
       throw new Error('No account connected to wallet')
     }
@@ -80,7 +62,7 @@ export async function createAccount({
     addLog?.('Signing EIP-7702 authorization...')
     
     // Sign authorization to delegate the WebAuthn account to the contract
-    const authorization = await eoaWalletClient.signAuthorization({
+    const authorization = await signAuthorization(client, {
       account: account.publicKey,
       contractAddress,
     })
@@ -89,7 +71,7 @@ export async function createAccount({
     
     // Initialize the delegation by calling a function on the contract
     // This will deploy the contract code to the WebAuthn account address
-    const hash = await eoaWalletClient.writeContract({
+    const hash = await writeContract(client,{
       address: contractAddress,
       abi: example_abi,
       functionName: 'initialize',
@@ -112,6 +94,13 @@ export async function createAccount({
   }
 }
 
+
+export type Call = {
+  to: Address
+  value?: bigint
+  data?: Hex
+}
+
 /**
  * Executes transactions using the WebAuthn account
  */
@@ -124,7 +113,7 @@ export async function executeWithAccount({
   chain
 }: {
   account: Account
-  calls: Calls
+  calls: Call[]
   eoaWalletClient: WalletClient
   publicClient: PublicClient
   chain: Chain
@@ -161,21 +150,20 @@ export async function executeWithAccount({
 /**
  * Load an existing WebAuthn account using stored credential
  */
-export async function loadAccount({ 
-  credentialId 
-}: { 
-  credentialId: string 
+export async function loadAccount(props: {
+  name: string
+
 }) {
   // This would typically load from storage
-  if (!storedCredential || storedCredential.id !== credentialId) {
+  if (!credential) {
     throw new Error('Credential not found')
   }
   
   const account = toWebAuthnAccount({
-    credential: storedCredential,
+    credential,
   })
   
-  webAuthnAccount = account
+  const webAuthnAccount = account
   
   return {
     address: account.publicKey,

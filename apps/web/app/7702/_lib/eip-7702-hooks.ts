@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useChainId, usePublicClient, useWalletClient } from 'wagmi'
+import { useChainId, useClient, usePublicClient, useWalletClient } from 'wagmi'
 import { type Address } from 'viem'
 import {
   createAccount,
@@ -18,6 +18,7 @@ export function useCreateEIP7702Account({
   addLog?: (message: string | React.ReactNode) => void
 }) {
   const publicClient = usePublicClient()
+  const client = useClient()
   const { data: walletClient } = useWalletClient()
   const queryClient = useQueryClient()
   
@@ -27,9 +28,15 @@ export function useCreateEIP7702Account({
       if (!walletClient || !publicClient) {
         throw new Error('Wallet not connected')
       }
-      
+      if (!client) {
+        throw new Error('Client not connected')
+      }
+      if (!walletClient.account) {
+        throw new Error('Wallet account not connected')
+      }
       const account = await createAccount({
-        eoaWalletClient: walletClient,
+        client,
+        eoaAccount: walletClient.account,
         publicClient,
         contractAddress,
         addLog,

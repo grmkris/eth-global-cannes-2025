@@ -6,42 +6,58 @@ import {
 import {
   type Address,
   type Hex,
-} from 'viem'
-import {
+  createWalletClient,
+  http,
+  type PrivateKeyAccount,
+  type Chain,
   type WalletClient,
 } from 'viem'
+import { generateMnemonic, generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { example_abi } from './example_abi'
+
+export type WalletType = 'metamask' | 'local' | 'cold'
 
 // Store WebAuthn account globally for reuse
 let storedWebAuthnAccount: WebAuthnAccount | null = null
 let storedCredential: any | null = null
+let storedWalletType: WalletType | null = null
 
 export const DELEGATION_CONTRACT_ADDRESS = '0x1234567890123456789012345678901234567890' as const
 
+export type Call = {
+  to: Address
+  value?: bigint
+  data?: Hex
+}
+
 /**
- * Creates a new WebAuthn account with passkey and delegates the MetaMask EOA to it
+ * Creates a new WebAuthn account with passkey and delegates any type of EOA to it
  */
 export async function createPasskeyDelegation({ 
   walletClient,
   contractAddress,
   addLog,
+  walletType,
 }: { 
   walletClient: WalletClient
   contractAddress: Address
   addLog?: (message: string | React.ReactNode) => void
+  walletType: WalletType
 }) {
   try {
     const eoaAccount = walletClient.account
     if (!eoaAccount) {
-      throw new Error('No account connected to wallet')
+      throw new Error('No account found in wallet client')
     }
     
-    addLog?.(`Connected EOA: ${eoaAccount.address}`)
+    storedWalletType = walletType
+    
+    addLog?.(`Using ${walletType} EOA: ${eoaAccount.address}`)
     addLog?.('Creating WebAuthn credential (Passkey)...')
     
     // Create a WebAuthn credential (passkey)
     const credential = await createWebAuthnCredential({
-      name: `Delegated EOA: ${eoaAccount.address.slice(0, 8)}...`,
+      name: `Delegated ${walletType} EOA: ${eoaAccount.address.slice(0, 8)}...`,
     })
     
     // Create WebAuthn account from credential
@@ -57,7 +73,6 @@ export async function createPasskeyDelegation({
     addLog?.('Signing EIP-7702 authorization to delegate EOA to contract...')
     
     // Sign authorization to delegate the EOA to the contract
-    // This allows the contract to execute on behalf of the EOA
     const authorization = await walletClient.signAuthorization({
       account: eoaAccount,
       contractAddress,
@@ -66,7 +81,6 @@ export async function createPasskeyDelegation({
     addLog?.('Sending delegation transaction...')
     
     // Send the authorization transaction to delegate the EOA
-    // After this, the EOA can be controlled through the contract
     const hash = await walletClient.writeContract({
       address: DELEGATION_CONTRACT_ADDRESS,
       abi: example_abi,
@@ -85,18 +99,12 @@ export async function createPasskeyDelegation({
       authorizationHash: hash,
       webAuthnAccount,
       credential,
+      walletType,
     }
   } catch (error) {
     console.error('Failed to create passkey delegation:', error)
     throw error
   }
-}
-
-
-export type Call = {
-  to: Address
-  value?: bigint
-  data?: Hex
 }
 
 /**
@@ -118,7 +126,7 @@ export async function executeWithPasskey({
     
     const eoaAccount = walletClient.account
     if (!eoaAccount) {
-      throw new Error('No account connected to wallet')
+      throw new Error('No account found in wallet client')
     }
     
     addLog?.('Authenticating with passkey...')
@@ -154,6 +162,49 @@ export async function executeWithPasskey({
 }
 
 /**
+ * Generates a local EOA in-memory
+ */
+export function generateLocalAccount(props: {
+  chain: Chain
+}): WalletClient {
+  // Generate a random private key for demo purposes
+  
+  const privateKey = generatePrivateKey()
+  const account = privateKeyToAccount(privateKey)
+  
+  // Store the private key on the account object for later retrieval
+  // This is needed for localStorage persistence
+  ;(account as any).privateKey = privateKey
+  
+  // Create a wallet client for the local account
+  const walletClient = createWalletClient({
+    account,
+    chain: props.chain,
+    transport: http(),
+  })
+  
+  return walletClient
+}
+
+/**
+ * Create wallet client from private key (for cold wallet)
+ */
+export function createWalletFromPrivateKey(props: {
+  privateKey: Hex
+  chain: Chain
+}): WalletClient {
+  const account = privateKeyToAccount(props.privateKey)
+  
+  const walletClient = createWalletClient({
+    account,
+    chain: props.chain,
+    transport: http(),
+  })
+  
+  return walletClient
+}
+
+/**
  * Get the current passkey delegation status
  */
 export function getDelegationStatus() {
@@ -165,6 +216,7 @@ export function getDelegationStatus() {
     passkeyId: storedCredential.id,
     webAuthnAccount: storedWebAuthnAccount,
     credential: storedCredential,
+    walletType: storedWalletType,
   }
 }
 
@@ -174,4 +226,5 @@ export function getDelegationStatus() {
 export function clearDelegation() {
   storedWebAuthnAccount = null
   storedCredential = null
+  storedWalletType = null
 }

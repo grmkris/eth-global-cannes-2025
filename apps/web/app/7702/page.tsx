@@ -1,25 +1,39 @@
 'use client'
 
 import { useState } from 'react'
-import { useAccount } from 'wagmi'
+import { useAccount, useChainId, useChains } from 'wagmi'
 import { Button } from '@workspace/ui/components/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@workspace/ui/components/card'
 import { Alert, AlertDescription } from '@workspace/ui/components/alert'
 import { Badge } from '@workspace/ui/components/badge'
 import { Separator } from '@workspace/ui/components/separator'
 import { ScrollArea } from '@workspace/ui/components/scroll-area'
-import { type Call } from './_lib/eip-7702-example'
-import { useCreatePasskeyDelegation, useExecuteWithPasskey, usePasskeyDelegation, useClearDelegation } from './_lib/eip-7702-hooks'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@workspace/ui/components/tabs'
+import { Input } from '@workspace/ui/components/input'
+import { Label } from '@workspace/ui/components/label'
+import { type Call, type WalletType } from './_lib/eip-7702'
+import { 
+  useCreatePasskeyDelegation, 
+  useExecuteWithPasskey, 
+  usePasskeyDelegation, 
+  useClearDelegation,
+  useCurrentWalletClient
+} from './_lib/eip-7702-hooks'
 import { example_abi } from './_lib/example_abi'
-import { encodeFunctionData } from 'viem'
-import { CheckCircle2, AlertCircle, Loader2, Key, Wallet, ArrowRight } from 'lucide-react'
+import { encodeFunctionData, type Hex } from 'viem'
+import { CheckCircle2, AlertCircle, Loader2, Key, Wallet, ArrowRight, Globe, Shield, HardDrive } from 'lucide-react'
 
 // Replace with your deployed delegation contract address
 const CONTRACT_ADDRESS = '0x1234567890123456789012345678901234567890' as const
 
 export default function EIP7702Page() {
   const { address: connectedAddress, isConnected } = useAccount()
+  const chainId = useChainId()
+  const chains = useChains()
+  const currentChain = chains.find(chain => chain.id === chainId)
   const [logs, setLogs] = useState<string[]>([])
+  const [privateKey, setPrivateKey] = useState<string>('')
+  const [selectedWalletType, setSelectedWalletType] = useState<WalletType>('metamask')
 
   const addLog = (message: string | React.ReactNode) => {
     const logMessage = typeof message === 'string' ? message : 'Action completed'
@@ -28,6 +42,7 @@ export default function EIP7702Page() {
 
   // React Query hooks
   const { data: delegation } = usePasskeyDelegation()
+  const { data: currentWalletClient } = useCurrentWalletClient()
   const createDelegationMutation = useCreatePasskeyDelegation({
     contractAddress: CONTRACT_ADDRESS,
     addLog,
@@ -35,9 +50,17 @@ export default function EIP7702Page() {
   const executeWithPasskeyMutation = useExecuteWithPasskey({ addLog })
   const clearDelegationMutation = useClearDelegation()
 
-  const handleCreateDelegation = async () => {
+  const handleCreateDelegation = async (walletType: WalletType) => {
     try {
-      await createDelegationMutation.mutateAsync()
+      if (walletType === 'cold' && !privateKey) {
+        addLog('Please enter a private key for cold wallet')
+        return
+      }
+      
+      await createDelegationMutation.mutateAsync({ 
+        walletType,
+        privateKey: walletType === 'cold' ? privateKey as Hex : undefined
+      })
     } catch (error) {
       // Error is handled by the mutation
     }
@@ -69,8 +92,11 @@ export default function EIP7702Page() {
   
   const handleClearDelegation = async () => {
     try {
-      await clearDelegationMutation.mutateAsync()
+      await clearDelegationMutation.mutateAsync({
+        clearLocalStorage: true,
+      })
       setLogs([])
+      setPrivateKey('')
     } catch (error) {
       // Error is handled by the mutation
     }
@@ -82,59 +108,114 @@ export default function EIP7702Page() {
         <div>
           <h1 className="text-3xl font-bold mb-2">EIP-7702 Delegation with Passkeys</h1>
           <p className="text-muted-foreground">
-            Delegate your MetaMask wallet to a passkey for secure, passwordless transactions
+            Delegate any type of EOA (MetaMask, Local, or Cold Wallet) to a passkey for secure transactions
           </p>
         </div>
 
-        {/* Connection Status */}
+        {/* Network Status */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Wallet className="h-5 w-5" />
-              Wallet Connection
+              <Globe className="h-5 w-5" />
+              Network Information
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            {isConnected ? (
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
-                <span>Connected: {connectedAddress}</span>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="h-5 w-5 text-yellow-500" />
-                  <span>Please connect your MetaMask wallet to continue</span>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Current Network:</span>
+              <Badge variant={currentChain ? "default" : "destructive"}>
+                {currentChain ? currentChain.name : 'Not Connected'}
+              </Badge>
+            </div>
+            {currentChain && (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Chain ID:</span>
+                  <Badge variant="outline">{currentChain.id}</Badge>
                 </div>
-                <appkit-button />
-              </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Currency:</span>
+                  <Badge variant="outline">{currentChain.nativeCurrency.symbol}</Badge>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
 
-        {/* EIP-7702 Account Status */}
-        {isConnected && (
+        {/* EIP-7702 Wallet Selection */}
+        {!delegation ? (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Key className="h-5 w-5" />
-                EIP-7702 Passkey Delegation
+                Select Wallet Type for Delegation
               </CardTitle>
               <CardDescription>
-                Delegate your MetaMask EOA to a passkey for secure transaction signing
+                Choose how you want to create your EOA for passkey delegation
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {!delegation ? (
-                <div className="space-y-4">
+            <CardContent>
+              <Tabs value={selectedWalletType} onValueChange={(v) => setSelectedWalletType(v as WalletType)}>
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="metamask">
+                    <Wallet className="h-4 w-4 mr-2" />
+                    MetaMask
+                  </TabsTrigger>
+                  <TabsTrigger value="local">
+                    <HardDrive className="h-4 w-4 mr-2" />
+                    Local Account
+                  </TabsTrigger>
+                  <TabsTrigger value="cold">
+                    <Shield className="h-4 w-4 mr-2" />
+                    Cold Wallet
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="metamask" className="space-y-4 mt-4">
                   <p className="text-sm text-muted-foreground">
-                    This will create a passkey and delegate your MetaMask wallet to a smart contract.
-                    After delegation, you can use your passkey to sign transactions.
+                    Use your connected MetaMask wallet to create a passkey delegation.
+                  </p>
+                  {isConnected ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-5 w-5 text-green-500" />
+                        <span>Connected: {connectedAddress}</span>
+                      </div>
+                      <Button 
+                        onClick={() => handleCreateDelegation('metamask')}
+                        disabled={createDelegationMutation.isPending}
+                        className="w-full"
+                      >
+                        {createDelegationMutation.isPending ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Creating Delegation...
+                          </>
+                        ) : (
+                          'Create Passkey Delegation'
+                        )}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Alert>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          Please connect your MetaMask wallet first
+                        </AlertDescription>
+                      </Alert>
+                      <appkit-button />
+                    </div>
+                  )}
+                </TabsContent>
+                
+                <TabsContent value="local" className="space-y-4 mt-4">
+                  <p className="text-sm text-muted-foreground">
+                    Generate a new EOA in-memory. The private key will be created randomly for demo purposes.
                   </p>
                   <Button 
-                    onClick={handleCreateDelegation}
+                    onClick={() => handleCreateDelegation('local')}
                     disabled={createDelegationMutation.isPending}
-                    size="lg"
                     className="w-full"
                   >
                     {createDelegationMutation.isPending ? (
@@ -143,69 +224,114 @@ export default function EIP7702Page() {
                         Creating Delegation...
                       </>
                     ) : (
-                      <>
-                        Delegate to Passkey
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </>
+                      'Generate Local Account & Create Delegation'
                     )}
                   </Button>
-                </div>
-              ) : (
-                <div className="space-y-4">
+                </TabsContent>
+                
+                <TabsContent value="cold" className="space-y-4 mt-4">
+                  <p className="text-sm text-muted-foreground">
+                    Import an existing private key to create a passkey delegation.
+                  </p>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Delegated EOA:</span>
-                      <Badge variant="outline" className="font-mono text-xs">
-                        {connectedAddress}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Passkey ID:</span>
-                      <Badge variant="outline" className="font-mono text-xs">
-                        {delegation.passkeyId.substring(0, 16)}...
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Delegation Contract:</span>
-                      <Badge variant="outline" className="font-mono text-xs">
-                        {CONTRACT_ADDRESS.substring(0, 10)}...
-                      </Badge>
-                    </div>
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div className="space-y-2">
-                    <h4 className="font-medium">Execute Transaction with Passkey</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Use your passkey to authenticate and execute transactions through your delegated EOA
+                    <Label htmlFor="privateKey">Private Key</Label>
+                    <Input
+                      id="privateKey"
+                      type="password"
+                      placeholder="0x..."
+                      value={privateKey}
+                      onChange={(e) => setPrivateKey(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Enter your private key starting with 0x (64 hex characters)
                     </p>
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={handleExecuteWithPasskey}
-                        disabled={executeWithPasskeyMutation.isPending}
-                        className="flex-1"
-                      >
-                        {executeWithPasskeyMutation.isPending ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Executing...
-                          </>
-                        ) : (
-                          'Execute Transaction'
-                        )}
-                      </Button>
-                      <Button
-                        onClick={handleClearDelegation}
-                        disabled={clearDelegationMutation.isPending}
-                        variant="outline"
-                      >
-                        Clear
-                      </Button>
-                    </div>
                   </div>
+                  <Button 
+                    onClick={() => handleCreateDelegation('cold')}
+                    disabled={createDelegationMutation.isPending || !privateKey}
+                    className="w-full"
+                  >
+                    {createDelegationMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating Delegation...
+                      </>
+                    ) : (
+                      'Import Wallet & Create Delegation'
+                    )}
+                  </Button>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-green-500" />
+                Passkey Delegation Active
+              </CardTitle>
+              <CardDescription>
+                Your {delegation.walletType} wallet has been delegated to a passkey
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Wallet Type:</span>
+                  <Badge>{delegation.walletType}</Badge>
                 </div>
-              )}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Delegated EOA:</span>
+                  <Badge variant="outline" className="font-mono text-xs">
+                    {currentWalletClient?.account?.address || 'Unknown'}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Passkey ID:</span>
+                  <Badge variant="outline" className="font-mono text-xs">
+                    {delegation.passkeyId.substring(0, 16)}...
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Delegation Contract:</span>
+                  <Badge variant="outline" className="font-mono text-xs">
+                    {CONTRACT_ADDRESS.substring(0, 10)}...
+                  </Badge>
+                </div>
+              </div>
+              
+              <Separator />
+              
+              <div className="space-y-2">
+                <h4 className="font-medium">Execute Transaction with Passkey</h4>
+                <p className="text-sm text-muted-foreground">
+                  Use your passkey to authenticate and execute transactions through your delegated EOA
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleExecuteWithPasskey}
+                    disabled={executeWithPasskeyMutation.isPending}
+                    className="flex-1"
+                  >
+                    {executeWithPasskeyMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Executing...
+                      </>
+                    ) : (
+                      'Execute Transaction'
+                    )}
+                  </Button>
+                  <Button
+                    onClick={() => handleClearDelegation()}
+                    disabled={clearDelegationMutation.isPending}
+                    variant="outline"
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -248,7 +374,7 @@ export default function EIP7702Page() {
             <CardTitle>How it works</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p>1. Connect your MetaMask wallet (this is your EOA)</p>
+            <p>1. Choose your wallet type: MetaMask, Local (in-memory), or Cold Wallet</p>
             <p>2. Create a passkey and delegate your EOA to a smart contract</p>
             <p>3. The delegation allows the contract to execute on behalf of your EOA</p>
             <p>4. Use your passkey to authenticate and execute transactions</p>

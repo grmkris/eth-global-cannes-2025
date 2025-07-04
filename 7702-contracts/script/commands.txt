@@ -1,0 +1,18 @@
+forge script \
+  script/BatchCallAndSponsor.s.sol:DeployBatchCallAndSponsorScript \
+  --rpc-url $SEPOLIA_RPC_URL \
+  --private-key $OWNER_PRIVATE_KEY \
+  --broadcast
+
+forge verify-contract \
+  --chain-id 11155111 \
+  --watch \
+  0x6990ace3e222ac4901b713958716bda39d709a6c \
+  src/BatchCallAndSponsor.sol:BatchCallAndSponsor \
+  --etherscan-api-key $ETHERSCAN_API_KEY
+
+forge script \
+  script/BatchCallAndSponsor.s.sol:BatchCallAndSponsorScript \
+  --rpc-url $SEPOLIA_RPC_URL \
+  --private-key $OWNER_PRIVATE_KEY \
+  --broadcast

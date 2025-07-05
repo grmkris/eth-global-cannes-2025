@@ -29,6 +29,7 @@ import { CheckCircle2, AlertCircle, Loader2, Key, Wallet, ArrowRight, Globe, Shi
 import { passkeyDelegationAbi } from './_lib/webauthn_delegation_abi'
 import { LedgerConnect } from './components/LedgerConnect'
 import { CopyableAddress } from './_components/CopyableAddress'
+import { IthacaDemo } from './_lib/ithaca/ithaca'
 
 // Replace with your deployed delegation contract address
 const CONTRACT_ADDRESS = '0x1234567890123456789012345678901234567890' as const
@@ -155,23 +156,31 @@ export default function EIP7702Page() {
               Delegate any type of EOA (MetaMask, Local, or Cold Wallet) to a passkey for secure transactions
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            {isLocalAccountMode ? (
-              <LocalAccountNetworkSwitch
-                currentChainId={chainId}
-                onNetworkChange={(newChainId) => {
-                  setLocalChainId(newChainId)
-                  // Clear delegation when switching networks
-                  if (delegation) {
-                    clearDelegationMutation.mutate({ clearLocalStorage: false })
-                  }
-                }}
-              />
-            ) : (
-              <appkit-network-button />
-            )}
-          </div>
         </div>
+
+        <Tabs defaultValue="eip7702" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="eip7702">EIP-7702 Demo</TabsTrigger>
+            <TabsTrigger value="ithaca">Ithaca Demo</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="eip7702" className="space-y-6 mt-6">
+            <div className="flex items-center justify-end">
+              {isLocalAccountMode ? (
+                <LocalAccountNetworkSwitch
+                  currentChainId={chainId}
+                  onNetworkChange={(newChainId) => {
+                    setLocalChainId(newChainId)
+                    // Clear delegation when switching networks
+                    if (delegation) {
+                      clearDelegationMutation.mutate({ clearLocalStorage: false })
+                    }
+                  }}
+                />
+              ) : (
+                <appkit-network-button />
+              )}
+            </div>
 
         {/* Network Status */}
         <Card>
@@ -564,6 +573,12 @@ export default function EIP7702Page() {
             <p>5. Your EOA remains in control but can be operated via passkey</p>
           </CardContent>
         </Card>
+        </TabsContent>
+        
+        <TabsContent value="ithaca" className="mt-6">
+          <IthacaDemo />
+        </TabsContent>
+      </Tabs>
       </div>
     </div>
   )

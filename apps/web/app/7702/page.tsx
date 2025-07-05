@@ -27,6 +27,10 @@ import { LocalAccountNetworkSwitch } from './_components/LocalAccountNetworkSwit
 import { encodeFunctionData, type Hex } from 'viem'
 import { CheckCircle2, AlertCircle, Loader2, Key, Wallet, ArrowRight, Globe, Shield, HardDrive, Network } from 'lucide-react'
 import { passkeyDelegationAbi } from './_lib/webauthn_delegation_abi'
+import { LedgerConnect } from './components/LedgerConnect'
+
+// Replace with your deployed delegation contract address
+const CONTRACT_ADDRESS = '0x1234567890123456789012345678901234567890' as const
 import { getNetworkConfig, getContractAddress } from './_lib/network-config'
 
 export default function EIP7702Page() {
@@ -37,10 +41,10 @@ export default function EIP7702Page() {
   const [logs, setLogs] = useState<string[]>([])
   const [privateKey, setPrivateKey] = useState<string>('')
   const [selectedWalletType, setSelectedWalletType] = useState<WalletType>('metamask')
-  
+
   // Get delegation status first to determine wallet type
   const { data: delegation } = usePasskeyDelegation()
-  
+
   // Determine which chain ID to use based on context
   const isLocalAccountMode = selectedWalletType === 'local' || delegation?.walletType === 'local'
   const chainId = isLocalAccountMode ? localChainId : wagmiChainId
@@ -56,11 +60,11 @@ export default function EIP7702Page() {
   const contractAddress = networkConfig?.webAuthnDelegationAddress
   const isNetworkSupported = !!contractAddress
 
-  // React Query hooks  
+  // React Query hooks
   const { data: currentWalletClient } = useCurrentWalletClient()
   const { data: storedLocalAccount } = useStoredLocalAccount(isLocalAccountMode ? chainId : undefined)
   const { data: localBalance } = useLocalAccountBalance(isLocalAccountMode ? chainId : undefined)
-  const generateLocalAccountMutation = useGenerateLocalAccount({ 
+  const generateLocalAccountMutation = useGenerateLocalAccount({
     addLog,
     chainId: isLocalAccountMode ? chainId : undefined
   })
@@ -209,6 +213,22 @@ export default function EIP7702Page() {
           </CardContent>
         </Card>
 
+        {/* Ledger Connection */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Hardware Wallet Connection
+            </CardTitle>
+            <CardDescription>
+              Connect your Ledger hardware wallet for additional security
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <LedgerConnect />
+          </CardContent>
+        </Card>
+
         {/* EIP-7702 Wallet Selection */}
         {!delegation ? (
           <Card>
@@ -286,7 +306,7 @@ export default function EIP7702Page() {
                       With local accounts, you can switch networks using the dropdown in the top right corner.
                     </AlertDescription>
                   </Alert>
-                  
+
                   {!storedLocalAccount ? (
                     <Button 
                       onClick={() => generateLocalAccountMutation.mutate()}

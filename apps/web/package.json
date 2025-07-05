@@ -13,6 +13,8 @@
 		"format": "biome format --write"
 	},
 	"dependencies": {
+		"@ledgerhq/device-management-kit": "^0.7.0",
+		"@ledgerhq/device-transport-kit-web-hid": "^1.1.0",
 		"@metamask/delegation-toolkit": "^0.12.0",
 		"@reown/appkit": "^1.7.12",
 		"@reown/appkit-adapter-wagmi": "^1.7.12",

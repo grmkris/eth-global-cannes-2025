@@ -37,6 +37,14 @@ contract BatchCallAndSponsor {
     /// @notice Emitted when a full batch is executed.
     event BatchExecuted(uint256 indexed nonce, Call[] calls);
 
+    
+    event Test(uint256 number);
+    function test(uint256 number) external {
+        emit Test(number);
+    }
+
+
+
     /**
      * @notice Executes a batch of calls using an off–chain signature.
      * @param calls An array of Call structs containing destination, ETH value, and calldata.

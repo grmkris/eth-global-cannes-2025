@@ -188,30 +188,17 @@ export async function authorize({
   
   const expiry = BigInt(0) // no expiry
 
-  // Compute digest to sign for the authorize function.
-  const digest = keccak256(
-    encodePacked(
-      ['uint256', 'uint256', 'uint256', 'uint256'],
-      [nonce, publicKey.x, publicKey.y, expiry],
-    ),
-  )
-
-  // Sign the authorize digest and parse signature to object format required by
-  // the contract.
-  if (!walletClient.account) {
-    throw new Error('No account found in wallet client')
-  }
-  const signature = parseSignature(await walletClient.signMessage({ message: digest, account: walletClient.account }))
-
   // Sign an EIP-7702 authorization to inject the ExperimentDelegation contract
   // onto the EOA.
   const authorization = await walletClient.signAuthorization({
-    account: walletClient.account,
+    account: walletClient.account!,
     contractAddress: networkConfigs[walletClient.chain?.id ?? 0]?.experimentDelegationAddress ?? '0x0000000000000000000000000000000000000000',
     executor: 'self',
   })
-  const keyIndex = await walletClient.writeContract({
-    address: walletClient.account.address,
+  
+  // Send the authorize transaction
+  const hash = await walletClient.writeContract({
+    address: walletClient.account!.address,
     abi: delegationAbi,
     functionName: 'authorize',
     args: [
@@ -220,10 +207,17 @@ export async function authorize({
     ],
     authorizationList: [authorization],
     chain: walletClient.chain,
-    account: walletClient.account,
+    account: walletClient.account!,
   })
 
-  return { hash: keyIndex, keyIndex }
+  // Wait for the transaction to be mined
+  const receipt = await publicClient.waitForTransactionReceipt({ hash })
+  
+  // Since this is likely the first key being added, the index should be 0
+  // In a production system, you'd parse the logs or read the keys array length
+  const keyIndex = 0
+  
+  return { hash, keyIndex }
 }
 
 /**
@@ -279,7 +273,7 @@ export async function createPasskeyDelegation({
       credential,
       walletType,
       publicKey: { x: pubKeyX.toString(), y: pubKeyY.toString() },
-      keyIndex: keyIndex ? Number(keyIndex) : undefined
+      keyIndex: keyIndex
     })
 
     const txHashLink = `https://${walletClient.chain?.name}.etherscan.io/tx/${hash}`

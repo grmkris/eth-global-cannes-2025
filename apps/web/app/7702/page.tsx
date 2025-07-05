@@ -17,7 +17,7 @@ import {
   useExecuteWithPasskey, 
   usePasskeyDelegation, 
   useClearDelegation,
-  useCurrentWalletClient,
+  useGetWalletClient,
   useGenerateLocalAccount,
   useStoredLocalAccount,
   useLocalAccountBalance,
@@ -25,9 +25,10 @@ import {
 } from './_lib/eip-7702-hooks'
 import { LocalAccountNetworkSwitch } from './_components/LocalAccountNetworkSwitch'
 import { encodeFunctionData, type Hex } from 'viem'
-import { CheckCircle2, AlertCircle, Loader2, Key, Wallet, ArrowRight, Globe, Shield, HardDrive, Network } from 'lucide-react'
+import { CheckCircle2, AlertCircle, Loader2, Key, Wallet, ArrowRight, Globe, Shield, HardDrive, Network, Copy, Check } from 'lucide-react'
 import { passkeyDelegationAbi } from './_lib/webauthn_delegation_abi'
 import { LedgerConnect } from './components/LedgerConnect'
+import { CopyableAddress } from './_components/CopyableAddress'
 
 // Replace with your deployed delegation contract address
 const CONTRACT_ADDRESS = '0x1234567890123456789012345678901234567890' as const
@@ -38,7 +39,7 @@ export default function EIP7702Page() {
   const wagmiChainId = useChainId()
   const { chainId: localChainId, setChainId: setLocalChainId } = useLocalAccountChainId()
   const chains = useChains()
-  const [logs, setLogs] = useState<string[]>([])
+  const [logs, setLogs] = useState<Array<{ timestamp: string; message: string | React.ReactNode }>>([])
   const [privateKey, setPrivateKey] = useState<string>('')
   const [selectedWalletType, setSelectedWalletType] = useState<WalletType>('metamask')
 
@@ -51,8 +52,10 @@ export default function EIP7702Page() {
   const currentChain = chains.find(chain => chain.id === chainId)
 
   const addLog = (message: string | React.ReactNode) => {
-    const logMessage = typeof message === 'string' ? message : 'Action completed'
-    setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${logMessage}`])
+    setLogs(prev => [...prev, {
+      timestamp: new Date().toLocaleTimeString(),
+      message: message
+    }])
   }
 
   // Get network-specific contract address
@@ -61,7 +64,7 @@ export default function EIP7702Page() {
   const isNetworkSupported = !!contractAddress
 
   // React Query hooks
-  const { data: currentWalletClient } = useCurrentWalletClient()
+  const { walletClient: currentWalletClient } = useGetWalletClient({ chainId: isLocalAccountMode ? chainId : undefined })
   const { data: storedLocalAccount } = useStoredLocalAccount(isLocalAccountMode ? chainId : undefined)
   const { data: localBalance } = useLocalAccountBalance(isLocalAccountMode ? chainId : undefined)
   const generateLocalAccountMutation = useGenerateLocalAccount({
@@ -116,7 +119,15 @@ export default function EIP7702Page() {
       
       addLog(`Calling snoj contract test function with number: ${testNumber}`)
       
-      await executeWithPasskeyMutation.mutateAsync({ calls: [snojTestCall1, snojTestCall2, snojTestCall3, snojTestCall4] })
+      if (!currentWalletClient) {
+        addLog('No wallet client available')
+        return
+      }
+      
+      await executeWithPasskeyMutation.mutateAsync({ 
+        calls: [snojTestCall1, snojTestCall2, snojTestCall3, snojTestCall4],
+        walletClient: currentWalletClient
+      })
     } catch (error) {
       // Error is handled by the mutation
     }
@@ -189,12 +200,10 @@ export default function EIP7702Page() {
                     {isNetworkSupported ? 'Supported' : 'Not Supported'}
                   </Badge>
                 </div>
-                {isNetworkSupported && (
+                {isNetworkSupported && contractAddress && (
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Contract:</span>
-                    <Badge variant="outline" className="font-mono text-xs">
-                      {contractAddress?.slice(0, 8)}...{contractAddress?.slice(-6)}
-                    </Badge>
+                    <CopyableAddress address={contractAddress} chainId={chainId} />
                   </div>
                 )}
               </>
@@ -217,22 +226,6 @@ export default function EIP7702Page() {
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
-
-        {/* Ledger Connection */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" />
-              Hardware Wallet Connection
-            </CardTitle>
-            <CardDescription>
-              Connect your Ledger hardware wallet for additional security
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <LedgerConnect />
           </CardContent>
         </Card>
 
@@ -273,7 +266,7 @@ export default function EIP7702Page() {
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <CheckCircle2 className="h-5 w-5 text-green-500" />
-                        <span>Connected: {connectedAddress}</span>
+                        <span>Connected: <CopyableAddress address={connectedAddress} chainId={chainId} /></span>
                       </div>
                       <Button 
                         onClick={() => handleCreateDelegation('metamask')}
@@ -334,9 +327,7 @@ export default function EIP7702Page() {
                       <div className="rounded-lg border p-4 space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium">EOA Address:</span>
-                          <Badge variant="outline" className="font-mono text-xs">
-                            {storedLocalAccount.address}
-                          </Badge>
+                          <CopyableAddress address={storedLocalAccount.address} chainId={chainId} />
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium">Balance:</span>
@@ -375,47 +366,67 @@ export default function EIP7702Page() {
                 
                 <TabsContent value="cold" className="space-y-4 mt-4">
                   <p className="text-sm text-muted-foreground">
-                    Import an existing private key to create a passkey delegation.
+                    Connect your Ledger hardware wallet or import an existing private key to create a passkey delegation.
                   </p>
-                  <div className="space-y-2">
-                    <Label htmlFor="privateKey">Private Key</Label>
-                    <Input
-                      id="privateKey"
-                      type="password"
-                      placeholder="0x..."
-                      value={privateKey}
-                      onChange={(e) => setPrivateKey(e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Enter your private key starting with 0x (64 hex characters)
-                    </p>
+                  
+                  {/* Ledger Connection */}
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-medium">Option 1: Connect Hardware Wallet</h4>
+                    <LedgerConnect />
                   </div>
                   
-                  {privateKey && privateKey.length === 66 && privateKey.startsWith('0x') && (
-                    <div className="space-y-4">
-                      <Alert>
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
-                          Make sure your wallet has sufficient balance to pay for gas fees before creating a delegation.
-                        </AlertDescription>
-                      </Alert>
-                      
-                      <Button 
-                        onClick={() => handleCreateDelegation('cold')}
-                        disabled={createDelegationMutation.isPending || !isNetworkSupported}
-                        className="w-full"
-                      >
-                        {createDelegationMutation.isPending ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Creating Delegation...
-                          </>
-                        ) : (
-                          'Create Passkey Delegation'
-                        )}
-                      </Button>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
                     </div>
-                  )}
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">Or</span>
+                    </div>
+                  </div>
+                  
+                  {/* Private Key Input */}
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-medium">Option 2: Import Private Key</h4>
+                    <div className="space-y-2">
+                      <Label htmlFor="privateKey">Private Key</Label>
+                      <Input
+                        id="privateKey"
+                        type="password"
+                        placeholder="0x..."
+                        value={privateKey}
+                        onChange={(e) => setPrivateKey(e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Enter your private key starting with 0x (64 hex characters)
+                      </p>
+                    </div>
+                    
+                    {privateKey && privateKey.length === 66 && privateKey.startsWith('0x') && (
+                      <div className="space-y-4">
+                        <Alert>
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
+                            Make sure your wallet has sufficient balance to pay for gas fees before creating a delegation.
+                          </AlertDescription>
+                        </Alert>
+                        
+                        <Button 
+                          onClick={() => handleCreateDelegation('cold')}
+                          disabled={createDelegationMutation.isPending || !isNetworkSupported}
+                          className="w-full"
+                        >
+                          {createDelegationMutation.isPending ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Creating Delegation...
+                            </>
+                          ) : (
+                            'Create Passkey Delegation'
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </TabsContent>
               </Tabs>
             </CardContent>
@@ -455,9 +466,10 @@ export default function EIP7702Page() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Delegated EOA:</span>
-                  <Badge variant="outline" className="font-mono text-xs">
-                    {currentWalletClient?.account?.address || 'Unknown'}
-                  </Badge>
+                  <CopyableAddress 
+                    address={currentWalletClient?.account?.address || storedLocalAccount?.address || connectedAddress || 'Unknown'} 
+                    chainId={chainId} 
+                  />
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Passkey ID:</span>
@@ -467,9 +479,7 @@ export default function EIP7702Page() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Delegation Contract:</span>
-                  <Badge variant="outline" className="font-mono text-xs">
-                    {contractAddress.substring(0, 10)}...
-                  </Badge>
+                  <CopyableAddress address={contractAddress} chainId={chainId} />
                 </div>
               </div>
               
@@ -530,9 +540,10 @@ export default function EIP7702Page() {
               ) : (
                 <div className="space-y-1">
                   {logs.map((log, index) => (
-                    <p key={index} className="text-sm font-mono">
-                      {log}
-                    </p>
+                    <div key={index} className="text-sm font-mono">
+                      <span className="text-muted-foreground">[{log.timestamp}]</span>{' '}
+                      {typeof log.message === 'string' ? log.message : log.message}
+                    </div>
                   ))}
                 </div>
               )}

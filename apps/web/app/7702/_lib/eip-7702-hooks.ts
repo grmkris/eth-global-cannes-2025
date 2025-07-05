@@ -72,6 +72,19 @@ function clearLocalAccount(chainId: number) {
   localStorage.removeItem(key)
 }
 
+// Helper function to create wallet client from stored account
+function createWalletClientFromStorage(chainId: number, chains: readonly any[]): WalletClient | null {
+  const storedAccount = getStoredLocalAccount(chainId)
+  const chain = chains.find((c) => c.id === chainId)
+  
+  if (!storedAccount || !chain) return null
+  
+  return createWalletFromPrivateKey({ 
+    privateKey: storedAccount.privateKey, 
+    chain 
+  })
+}
+
 export function useGenerateLocalAccount({
   addLog,
   chainId: customChainId,
@@ -106,9 +119,6 @@ export function useGenerateLocalAccount({
       
       addLog?.(`Generated local EOA: ${account.address}`)
       addLog?.(`Private key stored in localStorage for chain ${chain.id}`)
-      
-      // Store wallet client for later use
-      queryClient.setQueryData(['localWalletClient'], walletClient)
       
       // Invalidate to refetch local account info
       await queryClient.invalidateQueries({ queryKey: ['storedLocalAccount'] })
@@ -190,28 +200,20 @@ export function useCreatePasskeyDelegation({
         }
         walletClient = metamaskWallet
       } else if (walletType === 'local') {
-        // For local, check if we have a stored wallet client
-        const storedWalletClient = queryClient.getQueryData<WalletClient>(['localWalletClient'])
-        if (storedWalletClient) {
-          walletClient = storedWalletClient
+        // Always create wallet client from stored private key
+        const storedAccount = getStoredLocalAccount(chainId)
+        if (storedAccount && storedAccount.privateKey) {
+          // Recreate wallet client from stored private key
+          walletClient = createWalletFromPrivateKey({ 
+            privateKey: storedAccount.privateKey, 
+            chain 
+          })
         } else {
-          // Check if we have stored account info
-          const storedAccount = getStoredLocalAccount(chainId)
-          if (storedAccount && storedAccount.privateKey) {
-            // Recreate wallet client from stored private key
-            walletClient = createWalletFromPrivateKey({ 
-              privateKey: storedAccount.privateKey, 
-              chain 
-            })
-            queryClient.setQueryData(['localWalletClient'], walletClient)
-          } else {
-            // Generate new if not found
-            walletClient = generateLocalAccount({ chain })
-            const account = walletClient.account
-            if (account && (account as any).privateKey) {
-              storeLocalAccount(chainId, account.address, (account as any).privateKey)
-            }
-            queryClient.setQueryData(['localWalletClient'], walletClient)
+          // Generate new if not found
+          walletClient = generateLocalAccount({ chain })
+          const account = walletClient.account
+          if (account && (account as any).privateKey) {
+            storeLocalAccount(chainId, account.address, (account as any).privateKey)
           }
         }
         addLog?.(`Using local EOA: ${walletClient.account?.address}`)
@@ -229,9 +231,6 @@ export function useCreatePasskeyDelegation({
         walletType,
       })
       
-      // Store wallet client for later use
-      queryClient.setQueryData(['currentWalletClient'], walletClient)
-      
       // Invalidate queries to refetch
       await queryClient.invalidateQueries({ queryKey: ['passkeyDelegationMulti'] })
       
@@ -248,17 +247,9 @@ export function useExecuteWithPasskey({
 }: {
   addLog?: (message: string | React.ReactNode) => void
 }) {
-  const queryClient = useQueryClient()
-  
   return useMutation({
     mutationKey: ['executeWithPasskeyMulti'],
-    mutationFn: async ({ calls }: { calls: Call[] }) => {
-      const walletClient = queryClient.getQueryData<WalletClient>(['currentWalletClient'])
-      
-      if (!walletClient) {
-        throw new Error('No wallet client found. Please create a delegation first.')
-      }
-      
+    mutationFn: async ({ calls, walletClient }: { calls: Call[]; walletClient: WalletClient }) => {
       return executeWithPasskey({
         walletClient,
         calls,
@@ -279,13 +270,34 @@ export function usePasskeyDelegation() {
   })
 }
 
-export function useCurrentWalletClient() {
-  const queryClient = useQueryClient()
-  return useQuery({
-    queryKey: ['currentWalletClient'],
-    queryFn: () => queryClient.getQueryData<WalletClient>(['currentWalletClient']) || null,
-    staleTime: Infinity,
-  })
+// Helper function to get wallet client based on wallet type
+export function useGetWalletClient({
+  chainId: customChainId,
+}: {
+  chainId?: number
+} = {}) {
+  const { data: metamaskWallet } = useWalletClient()
+  const wagmiChainId = useChainId()
+  const chainId = customChainId || wagmiChainId
+  const chains = useChains()
+  const { data: passkeyDelegation } = usePasskeyDelegation()
+  
+  const getWalletClient = (): WalletClient | null => {
+    if (!passkeyDelegation?.walletType) return null
+    
+    if (passkeyDelegation.walletType === 'metamask') {
+      return metamaskWallet || null
+    } else if (passkeyDelegation.walletType === 'local') {
+      return createWalletClientFromStorage(chainId, chains)
+    }
+    
+    return null
+  }
+  
+  return {
+    walletClient: getWalletClient(),
+    walletType: passkeyDelegation?.walletType || null
+  }
 }
 
 export function useClearDelegation(customChainId?: number) {
@@ -297,8 +309,6 @@ export function useClearDelegation(customChainId?: number) {
     mutationKey: ['clearDelegationMulti'],
     mutationFn: async ({ clearLocalStorage = false }: { clearLocalStorage?: boolean } = {}) => {
       clearDelegation()
-      queryClient.removeQueries({ queryKey: ['currentWalletClient'] })
-      queryClient.removeQueries({ queryKey: ['localWalletClient'] })
       
       if (clearLocalStorage) {
         clearLocalAccount(chainId)
@@ -324,8 +334,9 @@ export function useExecuteSnojOperation({
   
   return useMutation({
     mutationKey: ['executeSnojOperation'],
-    mutationFn: async (props: { calls: Call[] }) => {
-      if (!props.calls || props.calls.length === 0) throw new Error('Calls required for snoj operation')
+    mutationFn: async (props: { calls: Call[]; walletClient: WalletClient }) => {
+      if (!props.calls || props.calls.length  === 0) throw new Error('Calls required for snoj operation')
+      if (!props.walletClient) throw new Error('Wallet client required for snoj operation')
       return executeWithPasskeyMutation.mutateAsync(props)
     },
     onError: (error) => {

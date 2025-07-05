@@ -1,7 +1,6 @@
 import {
   createWebAuthnCredential,
-  toWebAuthnAccount,
-  type WebAuthnAccount
+  toWebAuthnAccount
 } from 'viem/account-abstraction'
 import {
   type Address,
@@ -14,24 +13,89 @@ import {
   encodeAbiParameters,
   parseAbiParameters,
   createPublicClient,
-  type PrivateKeyAccount,
-  type Client,
   encodePacked,
   parseSignature,
 } from 'viem'
-import { generatePrivateKey, privateKeyToAccount, signAuthorization } from 'viem/accounts'
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { sign as webauthnSign, type PublicKey } from 'webauthn-p256'
+import React from 'react'
+import { TxHashLink } from './block-explorer-utils'
 import { passkeyDelegationAbi } from './webauthn_delegation_abi'
 import { networkConfigs } from './network-config'
-import { writeContract } from 'viem/actions'
 
 export type WalletType = 'metamask' | 'local' | 'cold'
 
-// Store WebAuthn account globally for reuse
-let storedWebAuthnAccount: WebAuthnAccount | null = null
-let storedCredential: any | null = null
-let storedWalletType: WalletType | null = null
-let storedPublicKey: { x: bigint; y: bigint } | null = null
+// WebAuthn storage keys
+const STORAGE_KEYS = {
+  WEBAUTHN_CREDENTIAL: 'eip7702_webauthn_credential',
+  WALLET_TYPE: 'eip7702_wallet_type',
+  PUBLIC_KEY: 'eip7702_public_key',
+} as const
+
+// Helper functions for WebAuthn data persistence
+function storeWebAuthnData(data: {
+  credential: any
+  walletType: WalletType
+  publicKey: { x: string; y: string }
+}) {
+  try {
+    // Store credential with necessary data only (can't store functions)
+    const credentialData = {
+      id: data.credential.id,
+      publicKey: Array.from(data.credential.publicKey),
+      type: data.credential.type,
+    }
+    localStorage.setItem(STORAGE_KEYS.WEBAUTHN_CREDENTIAL, JSON.stringify(credentialData))
+    localStorage.setItem(STORAGE_KEYS.WALLET_TYPE, data.walletType)
+    localStorage.setItem(STORAGE_KEYS.PUBLIC_KEY, JSON.stringify(data.publicKey))
+  } catch (error) {
+    console.error('Failed to store WebAuthn data:', error)
+  }
+}
+
+function getStoredWebAuthnData(): {
+  credential: any | null
+  walletType: WalletType | null
+  publicKey: { x: bigint; y: bigint } | null
+} | null {
+  try {
+    const credentialStr = localStorage.getItem(STORAGE_KEYS.WEBAUTHN_CREDENTIAL)
+    const walletType = localStorage.getItem(STORAGE_KEYS.WALLET_TYPE) as WalletType | null
+    const publicKeyStr = localStorage.getItem(STORAGE_KEYS.PUBLIC_KEY)
+
+    if (!credentialStr || !walletType || !publicKeyStr) {
+      return null
+    }
+
+    const credentialData = JSON.parse(credentialStr)
+    const publicKeyData = JSON.parse(publicKeyStr)
+
+    // Reconstruct credential object
+    const credential = {
+      id: credentialData.id,
+      publicKey: new Uint8Array(credentialData.publicKey),
+      type: credentialData.type,
+    }
+
+    // Convert public key coordinates back to bigint
+    const publicKey = {
+      x: BigInt(publicKeyData.x),
+      y: BigInt(publicKeyData.y),
+    }
+
+    return { credential, walletType, publicKey }
+  } catch (error) {
+    console.error('Failed to get stored WebAuthn data:', error)
+    return null
+  }
+}
+
+function clearWebAuthnStorage() {
+  localStorage.removeItem(STORAGE_KEYS.WEBAUTHN_CREDENTIAL)
+  localStorage.removeItem(STORAGE_KEYS.WALLET_TYPE)
+  localStorage.removeItem(STORAGE_KEYS.PUBLIC_KEY)
+  localStorage.removeItem('webauthn_nonce')
+}
 
 // Remove hardcoded address - will be passed as parameter instead
 
@@ -127,7 +191,7 @@ export async function createPasskeyDelegation({
       throw new Error('No account found in wallet client')
     }
 
-    storedWalletType = walletType
+    // Will be stored after credential creation
 
     addLog?.(`Using ${walletType} EOA: ${eoaAccount.address}`)
     addLog?.('Creating WebAuthn credential (Passkey)...')
@@ -149,10 +213,12 @@ export async function createPasskeyDelegation({
     const pubKeyX = BigInt('0x' + Buffer.from(publicKeyBytes.slice(1, 33)).toString('hex'))
     const pubKeyY = BigInt('0x' + Buffer.from(publicKeyBytes.slice(33, 65)).toString('hex'))
 
-    // Store for later use
-    storedWebAuthnAccount = webAuthnAccount
-    storedCredential = credential
-    storedPublicKey = { x: pubKeyX, y: pubKeyY }
+    // Store in localStorage for persistence
+    storeWebAuthnData({
+      credential,
+      walletType,
+      publicKey: { x: pubKeyX.toString(), y: pubKeyY.toString() }
+    })
 
     addLog?.(`Passkey created with ID: ${credential.id.slice(0, 16)}...`)
     addLog?.('Signing EIP-7702 authorization to delegate EOA to contract...')
@@ -164,7 +230,7 @@ export async function createPasskeyDelegation({
     addLog?.(`Public Key Y: ${pubKeyY.toString(16).slice(0, 16)}...`)
 
     const hash = await authorize({ walletClient, publicKey: { x: pubKeyX, y: pubKeyY } })
-    addLog?.(`Delegation transaction sent: ${hash}`)
+    addLog?.(<>Delegation transaction sent: <TxHashLink hash={hash} chainId={walletClient.chain?.id || 1} /></>)
     addLog?.('EOA successfully delegated! Passkey can now control transactions.')
 
     return {
@@ -194,9 +260,15 @@ export async function executeWithPasskey({
   addLog?: (message: string | React.ReactNode) => void
 }) {
   try {
-    if (!storedWebAuthnAccount || !storedCredential) {
+    const storedData = getStoredWebAuthnData()
+    if (!storedData || !storedData.credential) {
       throw new Error('No passkey found. Please create a delegation first.')
     }
+
+    const { credential: storedCredential } = storedData
+
+    // Recreate WebAuthn account from stored credential
+    const storedWebAuthnAccount = toWebAuthnAccount({ credential: storedCredential })
 
     const eoaAccount = walletClient.account
     if (!eoaAccount) {
@@ -293,7 +365,7 @@ export async function executeWithPasskey({
     // For this demo with the simple Delegation contract,
     // we'll execute directly through the EOA but show the signature was created
 
-    addLog?.(`Transaction executed: ${hash}`)
+    addLog?.(<>Transaction executed: <TxHashLink hash={hash} chainId={walletClient.chain?.id || 1} /></>)
     addLog?.('Transaction completed using passkey signature!')
     addLog?.('Signature: r=' + r.toString(16).slice(0, 8) + '..., s=' + s.toString(16).slice(0, 8) + '...')
 
@@ -351,15 +423,21 @@ export function createWalletFromPrivateKey(props: {
  * Get the current passkey delegation status
  */
 export function getDelegationStatus() {
-  if (!storedWebAuthnAccount || !storedCredential) {
+  const storedData = getStoredWebAuthnData()
+  if (!storedData) {
     return null
   }
 
+  const { credential, walletType } = storedData
+
+  // Note: WebAuthn account needs to be recreated when needed
+  // since we can't serialize the full account object
+
   return {
-    passkeyId: storedCredential.id,
-    webAuthnAccount: storedWebAuthnAccount,
-    credential: storedCredential,
-    walletType: storedWalletType,
+    passkeyId: credential?.id,
+    webAuthnAccount: null, // Will be recreated when needed
+    credential,
+    walletType,
   }
 }
 
@@ -367,9 +445,5 @@ export function getDelegationStatus() {
  * Clear the stored passkey (for demo purposes)
  */
 export function clearDelegation() {
-  storedWebAuthnAccount = null
-  storedCredential = null
-  storedWalletType = null
-  storedPublicKey = null
-  localStorage.removeItem('webauthn_nonce')
+  clearWebAuthnStorage()
 }

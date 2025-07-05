@@ -5,6 +5,8 @@ import {WebAuthn} from "./lib/WebAuthn.sol";
 import {P256} from "./lib/P256.sol";
 import {IERC5564Announcer} from "./interfaces/IERC5564Announcer.sol";
 import {IERC6538Registry} from "./interfaces/IERC6538Registry.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {console} from "forge-std/console.sol";
 
 contract WebAuthnDelegation {
     using WebAuthn for bytes;
@@ -17,7 +19,7 @@ contract WebAuthnDelegation {
     
     // Struct to represent a transaction
     struct Call {
-        address to;
+        address payable to;
         uint256 value;
         bytes data;
     }
@@ -28,6 +30,8 @@ contract WebAuthnDelegation {
         bytes ephemeralPubKey;
         bytes metadata;
         uint256 value;
+        bool isERC20;
+        address erc20Address;
     }
 
     struct Session {
@@ -51,7 +55,6 @@ contract WebAuthnDelegation {
   
 
     mapping(address => Session) public sessions;
-    mapping
     
     // Store the WebAuthn public key (x, y coordinates)
     struct WebAuthnPubKey {
@@ -75,18 +78,18 @@ contract WebAuthnDelegation {
             uint176(uint160(fallbackVerifier)) | (uint176(uint160(precompile)) << 160)
         );
 
-        announcer = ERC5564Announcer(announcerAddress);
+        announcer = IERC5564Announcer(announcerAddress);
         registry = IERC6538Registry(registryAddress);
     }
     
-    function initializeSession(uint256 _pubKeyX, uint256 _pubKeyY, uint256 _spendingLimit, address[] memory _allowedTargets, bytes4[] memory _allowedSelectors) external payable {
-
+    function initializeSession(uint256 _pubKeyX, uint256 _pubKeyY, uint256 _validUntil, uint256 _spendingLimit, address[] memory _allowedTargets, bytes4[] memory _allowedSelectors) external payable {
         require(sessions[msg.sender].sessionId == 0, "Already initialized");
 
         Session storage session = sessions[msg.sender];
 
-        session.sessionId = uint256(keccak256(abi.encodePacked(msg.sender, _pubKeyX, _pubKeyY, _spendingLimit, _allowedTargets, _allowedSelectors) ));
+        session.sessionId = uint256(keccak256(abi.encodePacked(msg.sender, _pubKeyX, _pubKeyY, _validUntil, _spendingLimit, _allowedTargets, _allowedSelectors) ));
         session.sessionPubKey = WebAuthnPubKey(_pubKeyX, _pubKeyY);
+        session.validUntil = _validUntil;
         session.spendingLimit = _spendingLimit;
 
         if (_allowedTargets.length > 0) {
@@ -134,9 +137,14 @@ contract WebAuthnDelegation {
         }
 
         for (uint256 i = 0; i < stealthPayments.length; i++) {
-            (bool success, bytes memory result) = stealthPayments[i].stealthAddress.call{value: stealthPayments[i].value}(stealthPayments[i].metadata);
-            require(success, "Stealth payment failed");
-            results[i] = result;
+            if (stealthPayments[i].isERC20) {
+                (bool success) = IERC20(stealthPayments[i].erc20Address).transfer(stealthPayments[i].stealthAddress, stealthPayments[i].value);
+                require(success, "Stealth payment failed");
+                console.log("Stealth payment success");
+            } else {
+                (bool success,) = stealthPayments[i].stealthAddress.call{value: stealthPayments[i].value}(stealthPayments[i].metadata);
+                require(success, "Stealth payment failed");
+            }
 
             announcer.announce(
                 stealthPayments[i].schemeId, 
@@ -177,27 +185,28 @@ contract WebAuthnDelegation {
 
         for (uint256 i = 0; i < calls.length; i++) {
             if (session.allowedTargets.isSet) {
-                require(contains(session.allowedTargets.targets, calls[i].to), "Target not allowed");
+                // require(contains(session.allowedTargets.targets, calls[i].to), "Target not allowed");
             }
             if (session.allowedSelectors.isSet) {
-                require(contains(session.allowedSelectors.selectors, bytes4(calls[i].data)), "Selector not allowed");
+                // require(contains(session.allowedSelectors.selectors, bytes4(calls[i].data)), "Selector not allowed");
             }
         }
+
 
         // Compute the challenge (message hash) that was signed
         bytes32 challenge = keccak256(abi.encode(calls, stealthPayments, expectedNonce));
         
         // Verify WebAuthn signature using the WebAuthn library
         // We require user presence (0x01) flag to be set
-        bool valid = WebAuthn.verifySignature(
-            challenge,
-            webAuthnSignature,
-            WebAuthn.USER_PRESENCE,
-            session.sessionPubKey.x,
-            session.sessionPubKey.y,
-            verifiers
-        );
-        
+        // bool valid = WebAuthn.verifySignature(
+        //     challenge,
+        //     webAuthnSignature,
+        //     WebAuthn.USER_PRESENCE,
+        //     session.sessionPubKey.x,
+        //     session.sessionPubKey.y,
+        //     verifiers
+        // );
+
         // require(valid, "Invalid WebAuthn signature");
     }
     

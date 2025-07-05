@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: CC0-1.0
-pragma solidity 0.8.23;
+pragma solidity ^0.8.23;
 
 /// @notice `ERC5564Announcer` contract to emit an `Announcement` event to broadcast information
 /// about a transaction involving a stealth address. See

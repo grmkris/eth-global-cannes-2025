@@ -76,17 +76,11 @@ export default function EIP7702Page() {
     if (!delegation) return
     
     try {
-      // Example: Call the ping function on the delegated contract
-      const pingCalldata = encodeFunctionData({
-        abi: passkeyDelegationAbi,
-        functionName: 'executeSingle',
-        args: [CONTRACT_ADDRESS, 0n, pingCalldata],
-      })
       
       const calls: Call[] = [
         {
           to: CONTRACT_ADDRESS,
-          data: pingCalldata,
+          data: '0xTO_BE_REPLACED',
           value: 0n,
         },
       ]

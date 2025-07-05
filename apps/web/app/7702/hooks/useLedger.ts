@@ -12,6 +12,9 @@ import {
   SignerEth,
   SignerEthBuilder,
 } from "@ledgerhq/device-signer-kit-ethereum";
+import { useMutation } from "@tanstack/react-query";
+import type { Address, Chain } from "viem";
+import { createLedgerAuthorization } from "./ledger-eip-7702";
 
 export function useLedger() {
   const [isConnected, setIsConnected] = useState(false);
@@ -109,6 +112,6 @@ export function useLedger() {
     connect,
     disconnect,
     signTransaction: signTransactionWithLedger,
-    getHardcodedTransaction,
+    getHardcodedTransaction
   };
-} 
+}

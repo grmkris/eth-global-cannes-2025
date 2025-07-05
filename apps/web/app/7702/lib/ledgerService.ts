@@ -4,7 +4,7 @@ import {
   SignerEth,
   SignerEthBuilder,
 } from "@ledgerhq/device-signer-kit-ethereum";
-import { ethers, Signature as EthersSignature, Transaction } from "ethers";
+import { ethers, Signature as EthersSignature, hashAuthorization, Transaction } from "ethers";
 import { DeviceActionStatus } from "@ledgerhq/device-management-kit";
 
 
@@ -181,11 +181,11 @@ export function signTransactionWithObservable(
     const transactionBytes = new Uint8Array(Buffer.from(txx.unsignedSerialized.substring(2), 'hex'));
     
     return currentSignerEth.signTransaction(derivationPath, transactionBytes).observable.subscribe({
-      next: (state: any) => {
+      next: (state) => {
         console.log("Sign state:", state);
         onStateChange?.(state);
       },
-      error: (error: any) => {
+      error: (error) => {
         console.error("Subscription error:", error);
       
         
@@ -201,6 +201,54 @@ export function signTransactionWithObservable(
     onError?.(error);
     throw new Error(`Failed to sign transaction: ${error instanceof Error ? error.message : "Unknown error"}`);
   }
+}
+
+export async function signDelegationAuthorization(
+  chainId: number,
+  contractAddress: string,
+  nonce: number,
+) {
+  if (!currentSignerEth) {
+    throw new Error("No Ledger device connected. Please connect a device first.");
+  }
+  console.log("signing delegation authorization" , {
+    chainId,
+    contractAddress,
+    nonce,
+  });
+  // create promise and resolve it with the result
+  const result = currentSignerEth.signDelegationAuthorization("44'/60'/0'/0/0", 11155111, contractAddress, nonce);
+  const awaited = await result.observable.toPromise();
+  console.log("Awaited result:", awaited);
+  if (awaited?.status === DeviceActionStatus.Completed) {
+    return awaited.output;
+  }
+  console.log("Awaited error:", awaited);
+  throw new Error(`Failed to sign delegation authorization: ${awaited?.status}`);
+}
+
+/**
+ * 
+ * Manually create the hash and use sign message function to sign it
+ */
+export async function signDelegationAuthorizationRaw(
+  chainId: number,
+  contractAddress: string,
+  nonce: number,
+) {
+  if (!currentSignerEth) {
+    throw new Error("No Ledger device connected. Please connect a device first.");
+  }
+  const hash = hashAuthorization({
+    chainId,
+    address: contractAddress,
+    nonce,
+  });
+  const result = await currentSignerEth.signMessage("44'/60'/0'/0/0", hash).observable.toPromise();
+  if (result?.status === DeviceActionStatus.Completed) {
+    return result.output;
+  }
+  throw new Error(`Failed to sign delegation authorization: ${result?.status}`);  
 }
 
 // Helper function to create a hardcoded transaction for testing

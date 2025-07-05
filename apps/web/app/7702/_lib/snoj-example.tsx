@@ -2,7 +2,7 @@
 
 import { useExecuteSnojOperation } from './eip-7702-hooks'
 import { getContractAddress } from './network-config'
-import { createTransferCall, type Call } from './eip-7702'
+import { createSnojTestCall, createTransferCall, type Call } from './eip-7702'
 import { type Address } from 'viem'
 
 // Example 1: Call the test function

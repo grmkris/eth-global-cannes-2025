@@ -17,6 +17,7 @@ import {
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { sign as webauthnSign } from 'webauthn-p256'
 import { passkeyDelegationAbi } from './webauthn_delegation_abi'
+import { networkConfigs } from './network-config'
 
 export type WalletType = 'metamask' | 'local' | 'cold'
 
@@ -30,8 +31,8 @@ let storedPublicKey: { x: bigint; y: bigint } | null = null
 
 export type Call = {
   to: Address
-  value?: bigint
-  data?: Hex
+  value: bigint
+  data: Hex
 }
 
 export type TokenOperation = 'mint' | 'transfer' | 'approve'
@@ -113,6 +114,14 @@ export function createSnojTestCall(contractAddress: Address, number: bigint): Ca
     to: contractAddress,
     value: 0n,
     data: ('0x29e99f07' + testData.slice(2)) as Hex, // test(uint256) selector
+  }
+}
+
+export function createSnojReceiveCall(contractAddress: Address, amount: bigint): Call {
+  return {
+    to: contractAddress,
+    data: '0x',
+    value: amount,
   }
 }
 
@@ -316,13 +325,14 @@ export async function executeWithPasskey({
     // The WebAuthn signature has been created using the passkey!
     // In a production implementation with the WebAuthnDelegation contract:
     // 
-    // const hash = await walletClient.writeContract({
-    //   address: contractAddress,
-    //   abi: webauthn_delegation_abi,
-    //   functionName: 'execute',
-    //   args: [calls, currentNonce, webAuthnSignature],
-    //   account: eoaAccount,
-    // })
+     const hash = await walletClient.writeContract({
+       address: networkConfigs[walletClient.chain?.id ?? 0]?.webAuthnDelegationAddress ?? '0x0000000000000000000000000000000000000000',
+       abi: passkeyDelegationAbi,
+       functionName: 'execute',
+       args: [calls, currentNonce, webAuthnSignature],
+       account: eoaAccount,
+       chain: walletClient.chain,
+     })
     //
     // The contract will:
     // 1. Verify the WebAuthn signature using the P256 library
@@ -332,16 +342,6 @@ export async function executeWithPasskey({
     //
     // For this demo with the simple Delegation contract,
     // we'll execute directly through the EOA but show the signature was created
-    const firstCall = calls[0]
-    if (!firstCall) throw new Error('No calls provided')
-    
-    const hash = await walletClient.sendTransaction({
-      to: firstCall.to,
-      data: firstCall.data,
-      value: firstCall.value ?? 0n,
-      account: eoaAccount,
-      chain: walletClient.chain,
-    })
     
     // Increment nonce for next transaction
     incrementNonce()

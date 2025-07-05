@@ -11,7 +11,7 @@ import { ScrollArea } from '@workspace/ui/components/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@workspace/ui/components/tabs'
 import { Input } from '@workspace/ui/components/input'
 import { Label } from '@workspace/ui/components/label'
-import { type Call, type WalletType } from './_lib/eip-7702'
+import { type Call, type WalletType, createSnojReceiveCall, createSnojTestCall } from './_lib/eip-7702'
 import { 
   useCreatePasskeyDelegation, 
   useExecuteWithPasskey, 
@@ -100,16 +100,20 @@ export default function EIP7702Page() {
     if (!delegation) return
     
     try {
+      // Get the snoj contract address
+      const snojContractAddress = getContractAddress(chainId, 'snojContractAddress')
+      if (!snojContractAddress) {
+        addLog('Snoj contract not configured for this network')
+        return
+      }
       
-      const calls: Call[] = [
-        {
-          to: contractAddress,
-          value: 0n,
-          data: '0x',
-        },
-      ]
+      // Create a test call to the snoj contract with a random number
+      const testNumber = BigInt(Math.floor(Math.random() * 1000))
+      const snojTestCall = createSnojReceiveCall(snojContractAddress, 100000n)
       
-      await executeWithPasskeyMutation.mutateAsync({ calls })
+      addLog(`Calling snoj contract test function with number: ${testNumber}`)
+      
+      await executeWithPasskeyMutation.mutateAsync({ calls: [snojTestCall] })
     } catch (error) {
       // Error is handled by the mutation
     }

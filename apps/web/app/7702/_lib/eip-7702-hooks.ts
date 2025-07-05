@@ -18,6 +18,7 @@ import {
   type Call,
   type WalletType,
   type TokenOperation,
+  createSnojReceiveCall,
 } from './eip-7702'
 
 // Store selected chain ID for local accounts
@@ -390,10 +391,12 @@ export function useExecuteSnojOperation({
     mutationFn: async ({ 
       operation,
       testNumber,
+      amount,
       calls,
     }: { 
-      operation: 'test' | 'execute'
+      operation: 'test' | 'execute' | 'receive'
       testNumber?: bigint
+      amount?: bigint
       calls?: Call[]
     }) => {
       let call: Call
@@ -408,6 +411,11 @@ export function useExecuteSnojOperation({
           if (!calls || calls.length === 0) throw new Error('Calls required for execute operation')
           call = createSnojExecuteCall(snojContractAddress, calls)
           addLog?.(`Executing ${calls.length} calls through snoj contract`)
+          break
+        case 'receive':
+          if (!amount) throw new Error('Amount required for receive operation')
+          call = createSnojReceiveCall(snojContractAddress, amount)
+          addLog?.(`Receiving ${amount} through snoj contract`)
           break
         default:
           throw new Error('Invalid snoj operation')

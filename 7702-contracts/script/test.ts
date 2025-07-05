@@ -6,11 +6,11 @@ import * as dotenv from "dotenv";
 
 dotenv.config();
 
-if (!process.env.OWNER_PRIVATE_KEY) {
-  throw new Error("OWNER_PRIVATE_KEY is not set");
+if (!process.env.USER_PRIVATE_KEY) {
+  throw new Error("USER_PRIVATE_KEY is not set");
 }
 
-const eoa = privateKeyToAccount(process.env.OWNER_PRIVATE_KEY as `0x${string}`);
+const eoa = privateKeyToAccount(process.env.USER_PRIVATE_KEY as `0x${string}`);
 
 async function main() {
   const contractAddress = "0x40e03c561eCC97aA2A44C2A1453fFBF4305CccC7";
@@ -52,6 +52,7 @@ async function main() {
     account: eoa,
     contractAddress,
     nonce: currentNonce,
+    executor: "self",
   });
   console.log("Prepared authorization:", prepedAuthorization);
 

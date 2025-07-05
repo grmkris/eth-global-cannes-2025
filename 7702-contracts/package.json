@@ -13,6 +13,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@noble/curves": "^1.9.2",
+    "abitype": "^1.0.8",
     "dotenv": "^17.0.1",
     "viem": "~2.31.7"
   },

@@ -4,7 +4,7 @@ import {
   cleanup, 
   getCurrentSessionId, 
   getCurrentSignerEth,
-  signTransactionWithObservable,
+  signTransactionLedger,
   createHardcodedTransaction,
   getAccountAddress
 } from "../lib/ledgerService";
@@ -84,7 +84,7 @@ export function useLedger() {
   ) => {
     try {
       setError(null);
-      return signTransactionWithObservable(transaction, onStateChange, onError, onComplete);
+      return signTransactionLedger(transaction, onStateChange, onError, onComplete);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to sign transaction";
       setError(errorMessage);

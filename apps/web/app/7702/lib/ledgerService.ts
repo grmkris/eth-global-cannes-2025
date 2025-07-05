@@ -6,7 +6,8 @@ import {
 } from "@ledgerhq/device-signer-kit-ethereum";
 import { ethers, Signature as EthersSignature, hashAuthorization, Transaction } from "ethers";
 import { DeviceActionStatus } from "@ledgerhq/device-management-kit";
-import type { TransactionRequest, TransactionRequestEIP7702 } from "viem";
+import { getTransactionType, hashMessage, numberToHex, serializeTransaction, type TransactionRequest, type TransactionRequestEIP7702, type TransactionSerializable } from "viem";
+import { generatePrivateKey, sign } from "viem/accounts";
 
 
 // Global variables to store subscriptions and session info
@@ -157,34 +158,44 @@ const serializeTx = (txObject: TransactionRequestEIP7702) => {
 };
 
 // Sign a transaction using the Ledger device with observable pattern
-export async function signTransactionWithObservable(
-  transaction: TransactionRequestEIP7702,
+export async function signTransactionLedger(
+  transaction: TransactionSerializable,
 ) {
   if (!currentSignerEth) {
     throw new Error("No Ledger device connected. Please connect a device first.");
   }
 
   try {
-    console.log("Signing transaction with Ledger device:", transaction);
-      
-      const serializedTx = serializeTx(transaction);
-      console.log("Serialized transaction:", serializedTx);
-
-    // Log the transaction object for debugging
-    console.log("Transaction object:", {
-      ...transaction,
-    });
+    console.log("signTransactionLedger Signing transaction with Ledger device:", transaction);
+    const txType = getTransactionType(transaction);
+    console.log("signTransactionLedger Transaction type:", txType);
+    const serializedTx = serializeTransaction(transaction);
+    const hashedSerializedTx = hashMessage(serializedTx);
+    console.log("signTransactionLedger Serialized transaction:", serializedTx)
 
     const derivationPath = "44'/60'/0'/0/0";
 
     // Convert transaction to Uint8Array
-    const transactionBytes = new Uint8Array(Buffer.from(serializedTx, 'hex'));
-    
-    const result = await currentSignerEth.signMessage(derivationPath, transactionBytes).observable.toPromise();
-    console.log("Sign transaction result:", result);
-    if (result?.status === DeviceActionStatus.Completed) {
-      return result.output;
-    }
+    // const transactionBytes = new Uint8Array(Buffer.from(serializedTx, 'hex'));
+
+    // const result = await currentSignerEth.signMessage(derivationPath, hashedSerializedTx).observable.toPromise();
+    // console.log("signTransactionLedger Signed transaction result:", result);
+    // if (result?.status === DeviceActionStatus.Completed) {
+    //   return serializeTransaction(transaction, {
+    //     r: numberToHex(BigInt(result.output.r)),
+    //     s: numberToHex(BigInt(result.output.s)),
+    //     v: BigInt(result.output.v),
+    //     yParity: result.output.v === 27 ? 0 : 1,
+    //   });
+    // }
+
+    const signed = sign({
+      hash: hashedSerializedTx,
+      privateKey: generatePrivateKey(),
+    })
+    console.log("signTransactionLedger Signed transaction:", signed);
+    return signed;
+
     throw new Error(`Failed to sign transaction: ${result?.status}`);
   } catch (error) {
     console.error("Failed to sign transaction:", error);
@@ -200,7 +211,7 @@ export async function signDelegationAuthorization(
   if (!currentSignerEth) {
     throw new Error("No Ledger device connected. Please connect a device first.");
   }
-  console.log("signing delegation authorization" , {
+  console.log("signing delegation authorization", {
     chainId,
     contractAddress,
     nonce,
@@ -237,7 +248,7 @@ export async function signDelegationAuthorizationRaw(
   if (result?.status === DeviceActionStatus.Completed) {
     return result.output;
   }
-  throw new Error(`Failed to sign delegation authorization: ${result?.status}`);  
+  throw new Error(`Failed to sign delegation authorization: ${result?.status}`);
 }
 
 // Helper function to create a hardcoded transaction for testing

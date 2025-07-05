@@ -1,4 +1,4 @@
-import { type Address, type Hex, type WalletClient, type Chain, type PublicClient, type TransactionReceipt } from 'viem'
+import { type Address, type Hex, type WalletClient, type Chain, type PublicClient, type TransactionReceipt, type TransactionSerializable } from 'viem'
 import { createWalletClient, http, createPublicClient } from 'viem'
 import { 
   signDelegationAuthorization, 
@@ -6,7 +6,7 @@ import {
   getCurrentSignerEth,
   getCurrentSessionId,
   signDelegationAuthorizationRaw,
-  signTransactionWithObservable,
+  signTransactionLedger,
 } from '../lib/ledgerService'
 
 export interface LedgerAuthorizationParams {
@@ -152,23 +152,24 @@ export async function sendLedgerTransactionWithAuthorization({
       transport: http(),
     })
     
+    console.log("sendLedgerTransactionWithAuthorization Authorization:", authorization);
     // Build the transaction with authorization list
-    const transaction = {
+    const transaction : TransactionSerializable = {
       to,
       value,
       data,
       authorizationList: [authorization],
-      chainId: chain.id,
-      from: authorization.address,
-      // Let the provider fill gas values
+      chainId: chain.id
     }
     
     // Sign the transaction using Ledger
-    const signedTx = await signTransactionWithObservable(transaction)
+    console.log("sendLedgerTransactionWithAuthorization Signing transaction:", transaction);
+    const signedTx = await signTransactionLedger(transaction)
     
+    console.log("sendLedgerTransactionWithAuthorizationSigned transaction:", signedTx);
     // Send the raw transaction
     const hash = await publicClient.sendRawTransaction({
-      serializedTransaction: signedTx as unknown as Hex,
+      serializedTransaction: signedTx,
     })
     
     return hash

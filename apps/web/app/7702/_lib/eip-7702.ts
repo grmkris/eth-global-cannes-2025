@@ -230,7 +230,8 @@ export async function createPasskeyDelegation({
     addLog?.(`Public Key Y: ${pubKeyY.toString(16).slice(0, 16)}...`)
 
     const hash = await authorize({ walletClient, publicKey: { x: pubKeyX, y: pubKeyY } })
-    addLog?.(<>Delegation transaction sent: <TxHashLink hash={hash} chainId={walletClient.chain?.id || 1} /></>)
+    const txHashLink = `https://${walletClient.chain?.name}.etherscan.io/tx/${hash}`
+    addLog?.(`Delegation transaction sent: ${txHashLink}`)
     addLog?.('EOA successfully delegated! Passkey can now control transactions.')
 
     return {
@@ -365,7 +366,9 @@ export async function executeWithPasskey({
     // For this demo with the simple Delegation contract,
     // we'll execute directly through the EOA but show the signature was created
 
-    addLog?.(<>Transaction executed: <TxHashLink hash={hash} chainId={walletClient.chain?.id || 1} /></>)
+    // just construct a https link without the TxHashLink component   
+    const txHashLink = `https://${walletClient.chain?.name}.etherscan.io/tx/${hash}`
+    addLog?.(`Transaction executed: ${txHashLink}`)
     addLog?.('Transaction completed using passkey signature!')
     addLog?.('Signature: r=' + r.toString(16).slice(0, 8) + '..., s=' + s.toString(16).slice(0, 8) + '...')
 

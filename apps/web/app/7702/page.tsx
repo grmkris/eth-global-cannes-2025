@@ -266,7 +266,7 @@ export default function EIP7702Page() {
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <CheckCircle2 className="h-5 w-5 text-green-500" />
-                        <span>Connected: <CopyableAddress address={connectedAddress} chainId={chainId} /></span>
+                        <span>Connected: <CopyableAddress address={connectedAddress || ''} chainId={chainId} /></span>
                       </div>
                       <Button 
                         onClick={() => handleCreateDelegation('metamask')}

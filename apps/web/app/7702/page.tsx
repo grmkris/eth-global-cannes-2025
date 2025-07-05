@@ -25,6 +25,7 @@ import {
 import { encodeFunctionData, type Hex } from 'viem'
 import { CheckCircle2, AlertCircle, Loader2, Key, Wallet, ArrowRight, Globe, Shield, HardDrive } from 'lucide-react'
 import { passkeyDelegationAbi } from './_lib/webauthn_delegation_abi'
+import { LedgerConnect } from './components/LedgerConnect'
 
 // Replace with your deployed delegation contract address
 const CONTRACT_ADDRESS = '0x1234567890123456789012345678901234567890' as const
@@ -146,6 +147,22 @@ export default function EIP7702Page() {
                 </div>
               </>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Ledger Connection */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Hardware Wallet Connection
+            </CardTitle>
+            <CardDescription>
+              Connect your Ledger hardware wallet for additional security
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <LedgerConnect />
           </CardContent>
         </Card>
 

@@ -1,5 +1,4 @@
 import { Button } from "@workspace/ui/components/button";
-import { LedgerConnect } from "../components/LedgerConnect";
 
 export default function Page() {
 	return (
@@ -7,9 +6,8 @@ export default function Page() {
 			<div className="flex flex-col items-center justify-center gap-6">
 				<h1 className="text-3xl font-bold">ETH Global Cannes 2025</h1>
 				<p className="text-muted-foreground text-center max-w-md">
-					Connect your Ledger hardware wallet to get started
+					Welcome to ETH Global Cannes 2025
 				</p>
-				<LedgerConnect />
 				<div className="flex gap-2">
 					<Button size="sm">Button</Button>
 					<appkit-button />

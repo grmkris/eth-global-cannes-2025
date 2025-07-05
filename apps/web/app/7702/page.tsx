@@ -20,41 +20,57 @@ import {
   useCurrentWalletClient,
   useGenerateLocalAccount,
   useStoredLocalAccount,
-  useLocalAccountBalance
+  useLocalAccountBalance,
+  useLocalAccountChainId
 } from './_lib/eip-7702-hooks'
+import { LocalAccountNetworkSwitch } from './_components/LocalAccountNetworkSwitch'
 import { encodeFunctionData, type Hex } from 'viem'
-import { CheckCircle2, AlertCircle, Loader2, Key, Wallet, ArrowRight, Globe, Shield, HardDrive } from 'lucide-react'
+import { CheckCircle2, AlertCircle, Loader2, Key, Wallet, ArrowRight, Globe, Shield, HardDrive, Network } from 'lucide-react'
 import { passkeyDelegationAbi } from './_lib/webauthn_delegation_abi'
-
-// Replace with your deployed delegation contract address
-const CONTRACT_ADDRESS = '0x1234567890123456789012345678901234567890' as const
+import { getNetworkConfig, getContractAddress } from './_lib/network-config'
 
 export default function EIP7702Page() {
   const { address: connectedAddress, isConnected } = useAccount()
-  const chainId = useChainId()
+  const wagmiChainId = useChainId()
+  const { chainId: localChainId, setChainId: setLocalChainId } = useLocalAccountChainId()
   const chains = useChains()
-  const currentChain = chains.find(chain => chain.id === chainId)
   const [logs, setLogs] = useState<string[]>([])
   const [privateKey, setPrivateKey] = useState<string>('')
   const [selectedWalletType, setSelectedWalletType] = useState<WalletType>('metamask')
+  
+  // Get delegation status first to determine wallet type
+  const { data: delegation } = usePasskeyDelegation()
+  
+  // Determine which chain ID to use based on context
+  const isLocalAccountMode = selectedWalletType === 'local' || delegation?.walletType === 'local'
+  const chainId = isLocalAccountMode ? localChainId : wagmiChainId
+  const currentChain = chains.find(chain => chain.id === chainId)
 
   const addLog = (message: string | React.ReactNode) => {
     const logMessage = typeof message === 'string' ? message : 'Action completed'
     setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${logMessage}`])
   }
 
-  // React Query hooks
-  const { data: delegation } = usePasskeyDelegation()
+  // Get network-specific contract address
+  const networkConfig = getNetworkConfig(chainId)
+  const contractAddress = networkConfig?.webAuthnDelegationAddress
+  const isNetworkSupported = !!contractAddress
+
+  // React Query hooks  
   const { data: currentWalletClient } = useCurrentWalletClient()
-  const { data: storedLocalAccount } = useStoredLocalAccount()
-  const { data: localBalance } = useLocalAccountBalance()
-  const generateLocalAccountMutation = useGenerateLocalAccount({ addLog })
-  const createDelegationMutation = useCreatePasskeyDelegation({
-    contractAddress: CONTRACT_ADDRESS,
+  const { data: storedLocalAccount } = useStoredLocalAccount(isLocalAccountMode ? chainId : undefined)
+  const { data: localBalance } = useLocalAccountBalance(isLocalAccountMode ? chainId : undefined)
+  const generateLocalAccountMutation = useGenerateLocalAccount({ 
     addLog,
+    chainId: isLocalAccountMode ? chainId : undefined
+  })
+  const createDelegationMutation = useCreatePasskeyDelegation({
+    contractAddress: contractAddress || '0x0000000000000000000000000000000000000000',
+    addLog,
+    chainId: isLocalAccountMode ? chainId : undefined
   })
   const executeWithPasskeyMutation = useExecuteWithPasskey({ addLog })
-  const clearDelegationMutation = useClearDelegation()
+  const clearDelegationMutation = useClearDelegation(isLocalAccountMode ? chainId : undefined)
 
   const handleCreateDelegation = async (walletType: WalletType) => {
     try {
@@ -72,6 +88,10 @@ export default function EIP7702Page() {
     }
   }
 
+  if (!contractAddress) {
+    return <div>No contract address found for network {currentChain?.name}</div>
+  }
+
   const handleExecuteWithPasskey = async () => {
     if (!delegation) return
     
@@ -79,9 +99,9 @@ export default function EIP7702Page() {
       
       const calls: Call[] = [
         {
-          to: CONTRACT_ADDRESS,
-          data: '0xTO_BE_REPLACED',
+          to: contractAddress,
           value: 0n,
+          data: '0x',
         },
       ]
       
@@ -106,18 +126,36 @@ export default function EIP7702Page() {
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">EIP-7702 Delegation with Passkeys</h1>
-          <p className="text-muted-foreground">
-            Delegate any type of EOA (MetaMask, Local, or Cold Wallet) to a passkey for secure transactions
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">EIP-7702 Delegation with Passkeys</h1>
+            <p className="text-muted-foreground">
+              Delegate any type of EOA (MetaMask, Local, or Cold Wallet) to a passkey for secure transactions
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {isLocalAccountMode ? (
+              <LocalAccountNetworkSwitch
+                currentChainId={chainId}
+                onNetworkChange={(newChainId) => {
+                  setLocalChainId(newChainId)
+                  // Clear delegation when switching networks
+                  if (delegation) {
+                    clearDelegationMutation.mutate({ clearLocalStorage: false })
+                  }
+                }}
+              />
+            ) : (
+              <appkit-network-button />
+            )}
+          </div>
         </div>
 
         {/* Network Status */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Globe className="h-5 w-5" />
+              <Network className="h-5 w-5" />
               Network Information
             </CardTitle>
           </CardHeader>
@@ -135,10 +173,38 @@ export default function EIP7702Page() {
                   <Badge variant="outline">{currentChain.id}</Badge>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Currency:</span>
-                  <Badge variant="outline">{currentChain.nativeCurrency.symbol}</Badge>
+                  <span className="text-sm font-medium">EIP-7702 Support:</span>
+                  <Badge variant={isNetworkSupported ? "default" : "destructive"}>
+                    {isNetworkSupported ? 'Supported' : 'Not Supported'}
+                  </Badge>
                 </div>
+                {isNetworkSupported && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Contract:</span>
+                    <Badge variant="outline" className="font-mono text-xs">
+                      {contractAddress?.slice(0, 8)}...{contractAddress?.slice(-6)}
+                    </Badge>
+                  </div>
+                )}
               </>
+            )}
+            {!isNetworkSupported && currentChain && (
+              <div className="space-y-2 mt-2">
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    This network is not configured. Please switch to a supported network.
+                  </AlertDescription>
+                </Alert>
+                <div className="flex gap-2">
+                  <Badge variant="secondary" className="cursor-pointer hover:bg-secondary/80">
+                    Zircuit Garfield Testnet
+                  </Badge>
+                  <Badge variant="secondary" className="cursor-pointer hover:bg-secondary/80">
+                    Ethereum Sepolia
+                  </Badge>
+                </div>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -184,7 +250,7 @@ export default function EIP7702Page() {
                       </div>
                       <Button 
                         onClick={() => handleCreateDelegation('metamask')}
-                        disabled={createDelegationMutation.isPending}
+                        disabled={createDelegationMutation.isPending || !isNetworkSupported}
                         className="w-full"
                       >
                         {createDelegationMutation.isPending ? (
@@ -214,6 +280,12 @@ export default function EIP7702Page() {
                   <p className="text-sm text-muted-foreground">
                     Generate a new EOA in-memory. The private key will be created randomly for demo purposes.
                   </p>
+                  <Alert>
+                    <Network className="h-4 w-4" />
+                    <AlertDescription>
+                      With local accounts, you can switch networks using the dropdown in the top right corner.
+                    </AlertDescription>
+                  </Alert>
                   
                   {!storedLocalAccount ? (
                     <Button 
@@ -258,7 +330,7 @@ export default function EIP7702Page() {
                       
                       <Button 
                         onClick={() => handleCreateDelegation('local')}
-                        disabled={createDelegationMutation.isPending || !localBalance || localBalance.value === 0n}
+                        disabled={createDelegationMutation.isPending || !localBalance || localBalance.value === 0n || !isNetworkSupported}
                         className="w-full"
                       >
                         {createDelegationMutation.isPending ? (
@@ -303,7 +375,7 @@ export default function EIP7702Page() {
                       
                       <Button 
                         onClick={() => handleCreateDelegation('cold')}
-                        disabled={createDelegationMutation.isPending}
+                        disabled={createDelegationMutation.isPending || !isNetworkSupported}
                         className="w-full"
                       >
                         {createDelegationMutation.isPending ? (
@@ -324,13 +396,29 @@ export default function EIP7702Page() {
         ) : (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
-                Passkey Delegation Active
-              </CardTitle>
-              <CardDescription>
-                Your {delegation.walletType} wallet has been delegated to a passkey
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    Passkey Delegation Active
+                  </CardTitle>
+                  <CardDescription>
+                    Your {delegation.walletType} wallet has been delegated to a passkey
+                  </CardDescription>
+                </div>
+                {delegation.walletType === 'local' ? (
+                  <LocalAccountNetworkSwitch
+                    currentChainId={chainId}
+                    onNetworkChange={(newChainId) => {
+                      setLocalChainId(newChainId)
+                      // Clear delegation when switching networks
+                      clearDelegationMutation.mutate({ clearLocalStorage: false })
+                    }}
+                  />
+                ) : (
+                  <appkit-network-button />
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -353,7 +441,7 @@ export default function EIP7702Page() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Delegation Contract:</span>
                   <Badge variant="outline" className="font-mono text-xs">
-                    {CONTRACT_ADDRESS.substring(0, 10)}...
+                    {contractAddress.substring(0, 10)}...
                   </Badge>
                 </div>
               </div>

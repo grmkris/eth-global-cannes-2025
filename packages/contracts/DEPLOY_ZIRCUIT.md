@@ -1,14 +1,22 @@
-# Deploying WebAuthn Contracts to Zircuit Garfield Testnet
+# Deploying WebAuthn Contracts to Zircuit Garfield Testnet & Ethereum Sepolia
 
-This guide walks you through deploying the WebAuthn delegation contracts to Zircuit Garfield Testnet.
+This guide walks you through deploying the WebAuthn delegation contracts to Zircuit Garfield Testnet and Ethereum Sepolia.
 
 ## Network Information
 
+### Zircuit Garfield Testnet
 - **Network Name:** Zircuit Garfield Testnet
 - **RPC URL:** https://garfield-testnet.zircuit.com/
 - **Chain ID:** 48898
 - **Currency Symbol:** ETH
 - **Block Explorer:** https://explorer.garfield-testnet.zircuit.com/
+
+### Ethereum Sepolia
+- **Network Name:** Ethereum Sepolia
+- **RPC URL:** https://rpc.sepolia.org/ (or use Infura/Alchemy)
+- **Chain ID:** 11155111
+- **Currency Symbol:** ETH
+- **Block Explorer:** https://sepolia.etherscan.io/
 
 ## Prerequisites
 
@@ -51,14 +59,17 @@ PRIVATE_KEY=0x...your_private_key_here...
 # Zircuit Garfield Testnet RPC
 ZIRCUIT_RPC_URL=https://garfield-testnet.zircuit.com/
 
-# Chain ID for Zircuit Garfield Testnet
-CHAIN_ID=48898
+# Ethereum Sepolia RPC (you can use public RPC or your own Infura/Alchemy endpoint)
+SEPOLIA_RPC_URL=https://rpc.sepolia.org/
+
+# Etherscan API key for contract verification (get from https://etherscan.io/apis)
+ETHERSCAN_API_KEY=your_etherscan_api_key_here
 EOF
 ```
 
 ## Step 3: Check Wallet Balance
 
-Check your wallet balance:
+Check your wallet balance on both networks:
 
 ```bash
 # Load environment variables
@@ -68,34 +79,56 @@ source .env
 ADDRESS=$(cast wallet address $PRIVATE_KEY)
 echo "Your address: $ADDRESS"
 
-# Check balance
+# Check balance on Zircuit
+echo "Zircuit Garfield balance:"
 cast balance $ADDRESS --rpc-url $ZIRCUIT_RPC_URL
+
+# Check balance on Sepolia
+echo "Ethereum Sepolia balance:"
+cast balance $ADDRESS --rpc-url $SEPOLIA_RPC_URL
 ```
 
 Convert wei to ETH:
 ```bash
+# For Zircuit
 BALANCE_WEI=$(cast balance $ADDRESS --rpc-url $ZIRCUIT_RPC_URL)
-cast from-wei $BALANCE_WEI
+echo "Zircuit balance: $(cast from-wei $BALANCE_WEI) ETH"
+
+# For Sepolia
+BALANCE_WEI=$(cast balance $ADDRESS --rpc-url $SEPOLIA_RPC_URL)
+echo "Sepolia balance: $(cast from-wei $BALANCE_WEI) ETH"
 ```
 
 ## Step 4: Fund Your Wallet
 
-If your balance is less than 0.01 ETH, you need to get test ETH:
+If your balance is less than 0.01 ETH on either network, you need to get test ETH:
 
+### For Zircuit Garfield Testnet:
 1. **Copy your address** from the previous step
-2. **Get test ETH** from one of these sources:
+2. **Get test ETH** from:
    - Zircuit Discord faucet (check their Discord for faucet channel)
    - Bridge from another testnet using a bridge service
    - Ask in the Zircuit community
 
+### For Ethereum Sepolia:
+1. **Copy your address** from the previous step
+2. **Get test ETH** from:
+   - [Sepolia Faucet by Alchemy](https://sepoliafaucet.com/)
+   - [Chainlink Sepolia Faucet](https://faucets.chain.link/sepolia)
+   - [Infura Sepolia Faucet](https://www.infura.io/faucet/sepolia)
+
 3. **Verify funding** by running the balance check again:
    ```bash
+   # Check Zircuit
    cast balance $ADDRESS --rpc-url $ZIRCUIT_RPC_URL
+   
+   # Check Sepolia
+   cast balance $ADDRESS --rpc-url $SEPOLIA_RPC_URL
    ```
 
 ## Step 5: Configure Foundry
 
-Add Zircuit Garfield Testnet to your `foundry.toml`:
+Add both networks to your `foundry.toml`:
 
 ```toml
 [profile.default]
@@ -105,13 +138,15 @@ libs = ["lib"]
 
 [rpc_endpoints]
 zircuit-garfield-testnet = "https://garfield-testnet.zircuit.com/"
+sepolia = "${SEPOLIA_RPC_URL}"
 
-# No etherscan config needed for Sourcify verification
+[etherscan]
+sepolia = { key = "${ETHERSCAN_API_KEY}" }
 ```
 
 ## Step 6: Deploy and Verify Contracts
 
-Deploy the FallbackP256Verifier and WebAuthnDelegation contracts:
+### Deploy to Zircuit Garfield Testnet
 
 ```bash
 # Make sure you're in the contracts directory
@@ -120,7 +155,7 @@ cd packages/contracts
 # Load environment variables
 source .env
 
-# Deploy using forge script
+# Deploy to Zircuit
 forge script script/DeployWebAuthn.s.sol:DeployWebAuthnScript \
     --rpc-url $ZIRCUIT_RPC_URL \
     --private-key $PRIVATE_KEY \
@@ -129,9 +164,40 @@ forge script script/DeployWebAuthn.s.sol:DeployWebAuthnScript \
     -vvv
 ```
 
+### Deploy to Ethereum Sepolia
+
+```bash
+# Deploy to Sepolia
+forge script script/DeployWebAuthn.s.sol:DeployWebAuthnScript \
+    --rpc-url $SEPOLIA_RPC_URL \
+    --private-key $PRIVATE_KEY \
+    --broadcast \
+    --slow \
+    -vvv
+```
+
+### Deploy SimpleMintableToken (Optional)
+
+Deploy the ERC20 token contract to either network:
+
+```bash
+# Deploy to Zircuit
+forge create SimpleMintableToken \
+    --constructor-args "MyToken" "MTK" \
+    --rpc-url $ZIRCUIT_RPC_URL \
+    --private-key $PRIVATE_KEY
+
+# Deploy to Sepolia
+forge create SimpleMintableToken \
+    --constructor-args "MyToken" "MTK" \
+    --rpc-url $SEPOLIA_RPC_URL \
+    --private-key $PRIVATE_KEY
+```
+
 ### What this deploys:
 1. **FallbackP256Verifier**: A fallback implementation for P256 signature verification
 2. **WebAuthnDelegation**: The main contract that verifies WebAuthn signatures and executes transactions
+3. **SimpleMintableToken** (optional): An ERC20 token that anyone can mint
 
 ## Step 7: Get Deployed Addresses
 
@@ -143,20 +209,23 @@ FallbackP256Verifier deployed at: 0x...
 WebAuthnDelegation deployed at: 0x...
 ```
 
-You can also check the broadcast file:
+You can also check the broadcast files:
 ```bash
+# For Zircuit deployment
 cat broadcast/DeployWebAuthn.s.sol/48898/run-latest.json | grep -A 2 "contractAddress"
+
+# For Sepolia deployment
+cat broadcast/DeployWebAuthn.s.sol/11155111/run-latest.json | grep -A 2 "contractAddress"
 ```
 
-## Step 8: Verify Contracts on Sourcify
+## Step 8: Verify Contracts
 
-After deployment, verify your contracts using Sourcify for source code verification on the explorer.
+### 8.1 Verify on Zircuit (Sourcify)
 
-### 8.1 Verify FallbackP256Verifier
-
+#### Verify FallbackP256Verifier
 ```bash
 # Replace with your actual deployed address from Step 7
-FALLBACK_VERIFIER_ADDRESS=0xbc50C13Ee53b7Bb7Fb788cE35a1d1562E2e87edE
+FALLBACK_VERIFIER_ADDRESS=0x...
 
 # Verify the contract
 forge verify-contract \
@@ -167,17 +236,13 @@ forge verify-contract \
     --chain-id 48898
 ```
 
-### 8.2 Verify WebAuthnDelegation
-
-The WebAuthnDelegation contract has constructor arguments that need to be encoded:
-
+#### Verify WebAuthnDelegation
 ```bash
 # Replace with your actual deployed addresses
 FALLBACK_VERIFIER_ADDRESS=0x...
 WEBAUTHN_DELEGATION_ADDRESS=0x...
 
-# Encode constructor arguments: constructor(address precompile, address fallbackVerifier)
-# Using address(0) for precompile as Zircuit doesn't have P256 precompile
+# Encode constructor arguments
 CONSTRUCTOR_ARGS=$(cast abi-encode "constructor(address,address)" \
     0x0000000000000000000000000000000000000100 \
     $FALLBACK_VERIFIER_ADDRESS)
@@ -192,11 +257,69 @@ forge verify-contract \
     --constructor-args $CONSTRUCTOR_ARGS
 ```
 
+### 8.2 Verify on Sepolia (Etherscan)
+
+#### Verify FallbackP256Verifier
+```bash
+# Replace with your actual deployed address
+FALLBACK_VERIFIER_ADDRESS_SEPOLIA=0x...
+
+# Verify on Etherscan
+forge verify-contract \
+    --verifier etherscan \
+    --verifier-url https://api-sepolia.etherscan.io/api \
+    --etherscan-api-key $ETHERSCAN_API_KEY \
+    $FALLBACK_VERIFIER_ADDRESS_SEPOLIA \
+    src/FallbackP256Verifier.sol:FallbackP256Verifier \
+    --chain-id 11155111
+```
+
+#### Verify WebAuthnDelegation
+```bash
+# Replace with your actual deployed addresses
+FALLBACK_VERIFIER_ADDRESS_SEPOLIA=0x...
+WEBAUTHN_DELEGATION_ADDRESS_SEPOLIA=0x...
+
+# Encode constructor arguments
+CONSTRUCTOR_ARGS=$(cast abi-encode "constructor(address,address)" \
+    0x0000000000000000000000000000000000000100 \
+    $FALLBACK_VERIFIER_ADDRESS_SEPOLIA)
+
+# Verify on Etherscan
+forge verify-contract \
+    --verifier etherscan \
+    --verifier-url https://api-sepolia.etherscan.io/api \
+    --etherscan-api-key $ETHERSCAN_API_KEY \
+    $WEBAUTHN_DELEGATION_ADDRESS_SEPOLIA \
+    src/WebAuthnDelegation.sol:WebAuthnDelegation \
+    --chain-id 11155111 \
+    --constructor-args $CONSTRUCTOR_ARGS
+```
+
+#### Verify SimpleMintableToken (if deployed)
+```bash
+# Replace with your actual deployed address
+TOKEN_ADDRESS_SEPOLIA=0x...
+
+# Encode constructor arguments
+CONSTRUCTOR_ARGS=$(cast abi-encode "constructor(string,string)" "MyToken" "MTK")
+
+# Verify on Etherscan
+forge verify-contract \
+    --verifier etherscan \
+    --verifier-url https://api-sepolia.etherscan.io/api \
+    --etherscan-api-key $ETHERSCAN_API_KEY \
+    $TOKEN_ADDRESS_SEPOLIA \
+    src/SimpleMintableToken.sol:SimpleMintableToken \
+    --chain-id 11155111 \
+    --constructor-args $CONSTRUCTOR_ARGS
+```
+
 ### 8.3 Verification Success
 
-Once verified, you'll see:
-- "Contract source code verified" badge on the explorer
-- Source code visible at: https://explorer.garfield-testnet.zircuit.com/address/YOUR_CONTRACT_ADDRESS
+Once verified:
+- **Zircuit**: Source code visible at https://explorer.garfield-testnet.zircuit.com/address/YOUR_CONTRACT_ADDRESS
+- **Sepolia**: Source code visible at https://sepolia.etherscan.io/address/YOUR_CONTRACT_ADDRESS
 
 ## Step 9: Update Frontend
 
@@ -249,5 +372,23 @@ cast call <WEBAUTHN_DELEGATION_ADDRESS> "getPublicKey()" --rpc-url $ZIRCUIT_RPC_
 cast send <WEBAUTHN_DELEGATION_ADDRESS> --value 0.01ether --private-key $PRIVATE_KEY --rpc-url $ZIRCUIT_RPC_URL
 ```
 
-### Deployed transactions and hashes:
-- https://explorer.garfield-testnet.zircuit.com/address/0xAC81d3F716F27Bec64384000a80A0106e989707A verifier with p256 support
+### Deployed Contracts
+
+#### Zircuit Garfield Testnet:
+- FallbackP256Verifier: https://explorer.garfield-testnet.zircuit.com/address/0xAC81d3F716F27Bec64384000a80A0106e989707A
+
+#### Ethereum Sepolia:
+- Check your deployment logs for addresses
+
+## Network-Specific Notes
+
+### Zircuit Garfield Testnet
+- Uses Sourcify for contract verification
+- No native P256 precompile (uses fallback verifier)
+- Lower gas costs compared to mainnet
+
+### Ethereum Sepolia
+- Uses Etherscan for contract verification
+- Requires Etherscan API key
+- More established testnet with better tooling support
+- Higher gas costs compared to Zircuit

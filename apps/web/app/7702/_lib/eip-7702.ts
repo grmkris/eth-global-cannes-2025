@@ -26,12 +26,114 @@ let storedCredential: any | null = null
 let storedWalletType: WalletType | null = null
 let storedPublicKey: { x: bigint; y: bigint } | null = null
 
-export const DELEGATION_CONTRACT_ADDRESS = '0x1234567890123456789012345678901234567890' as const
+// Remove hardcoded address - will be passed as parameter instead
 
 export type Call = {
   to: Address
   value?: bigint
   data?: Hex
+}
+
+export type TokenOperation = 'mint' | 'transfer' | 'approve'
+
+/**
+ * Helper function to create mint call data for SimpleMintableToken
+ */
+export function createMintCall(tokenAddress: Address, recipient: Address, amount: bigint): Call {
+  const mintData = encodeAbiParameters(
+    parseAbiParameters('address to, uint256 amount'),
+    [recipient, amount]
+  )
+  
+  return {
+    to: tokenAddress,
+    value: 0n,
+    data: ('0x40c10f19' + mintData.slice(2)) as Hex, // mint(address,uint256) selector
+  }
+}
+
+/**
+ * Helper function to create mintToSelf call data
+ */
+export function createMintToSelfCall(tokenAddress: Address, amount: bigint): Call {
+  const mintData = encodeAbiParameters(
+    parseAbiParameters('uint256 amount'),
+    [amount]
+  )
+  
+  return {
+    to: tokenAddress,
+    value: 0n,
+    data: ('0xb745c833' + mintData.slice(2)) as Hex, // mintToSelf(uint256) selector
+  }
+}
+
+/**
+ * Helper function to create transfer call data
+ */
+export function createTransferCall(tokenAddress: Address, to: Address, amount: bigint): Call {
+  const transferData = encodeAbiParameters(
+    parseAbiParameters('address to, uint256 amount'),
+    [to, amount]
+  )
+  
+  return {
+    to: tokenAddress,
+    value: 0n,
+    data: ('0xa9059cbb' + transferData.slice(2)) as Hex, // transfer(address,uint256) selector
+  }
+}
+
+/**
+ * Helper function to create approve call data
+ */
+export function createApproveCall(tokenAddress: Address, spender: Address, amount: bigint): Call {
+  const approveData = encodeAbiParameters(
+    parseAbiParameters('address spender, uint256 amount'),
+    [spender, amount]
+  )
+  
+  return {
+    to: tokenAddress,
+    value: 0n,
+    data: ('0x095ea7b3' + approveData.slice(2)) as Hex, // approve(address,uint256) selector
+  }
+}
+
+/**
+ * Helper function to create a test call for the snoj contract
+ */
+export function createSnojTestCall(contractAddress: Address, number: bigint): Call {
+  const testData = encodeAbiParameters(
+    parseAbiParameters('uint256 number'),
+    [number]
+  )
+  
+  return {
+    to: contractAddress,
+    value: 0n,
+    data: ('0x29e99f07' + testData.slice(2)) as Hex, // test(uint256) selector
+  }
+}
+
+/**
+ * Helper function to create an execute call for the snoj contract
+ */
+export function createSnojExecuteCall(contractAddress: Address, calls: Call[]): Call {
+  const executeData = encodeAbiParameters(
+    parseAbiParameters('(address to, uint256 value, bytes data)[] calls'),
+    [calls.map(call => ({
+      to: call.to,
+      value: call.value ?? 0n,
+      data: call.data ?? '0x',
+    }))]
+  )
+  
+  return {
+    to: contractAddress,
+    value: 0n,
+    data: ('0x13e7c9d8' + executeData.slice(2)) as Hex, // execute((address,uint256,bytes)[]) selector
+  }
 }
 
 /**

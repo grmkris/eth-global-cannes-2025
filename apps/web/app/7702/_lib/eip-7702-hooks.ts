@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useWalletClient, useChainId, useChains, useBalance } from 'wagmi'
 import { type Address, type Hex, type WalletClient } from 'viem'
+import { useState, useEffect } from 'react'
 import {
   createPasskeyDelegation,
   executeWithPasskey,
@@ -8,9 +9,52 @@ import {
   clearDelegation,
   generateLocalAccount,
   createWalletFromPrivateKey,
+  createMintCall,
+  createMintToSelfCall,
+  createTransferCall,
+  createApproveCall,
+  createSnojTestCall,
+  createSnojExecuteCall,
   type Call,
   type WalletType,
+  type TokenOperation,
 } from './eip-7702'
+
+// Store selected chain ID for local accounts
+function getSelectedChainId(): number | null {
+  const stored = localStorage.getItem('eip7702_selected_chain_id')
+  return stored ? parseInt(stored) : null
+}
+
+function setSelectedChainId(chainId: number) {
+  localStorage.setItem('eip7702_selected_chain_id', chainId.toString())
+}
+
+// Hook to manage selected chain ID for local accounts
+export function useLocalAccountChainId() {
+  const wagmiChainId = useChainId()
+  const [selectedChainId, setLocalSelectedChainId] = useState<number | null>(null)
+  
+  useEffect(() => {
+    const stored = getSelectedChainId()
+    if (stored) {
+      setLocalSelectedChainId(stored)
+    } else {
+      setLocalSelectedChainId(wagmiChainId)
+    }
+  }, [])
+  
+  const setChainId = (chainId: number) => {
+    setSelectedChainId(chainId)
+    setLocalSelectedChainId(chainId)
+  }
+  
+  return {
+    chainId: selectedChainId || wagmiChainId,
+    setChainId,
+    isLocalAccountMode: selectedChainId !== null && selectedChainId !== wagmiChainId
+  }
+}
 
 // Helper functions for local storage
 function getStoredLocalAccount(chainId: number): { address: Address; privateKey: Hex } | null {
@@ -37,11 +81,14 @@ function clearLocalAccount(chainId: number) {
 
 export function useGenerateLocalAccount({
   addLog,
+  chainId: customChainId,
 }: {
   addLog?: (message: string | React.ReactNode) => void
+  chainId?: number
 }) {
   const queryClient = useQueryClient()
-  const chainId = useChainId()
+  const wagmiChainId = useChainId()
+  const chainId = customChainId || wagmiChainId
   const chains = useChains()
   const chain = chains.find((c) => c.id === chainId)
   
@@ -81,15 +128,15 @@ export function useGenerateLocalAccount({
   })
 }
 
-export function useStoredLocalAccount() {
-  const chainId = useChainId()
+export function useStoredLocalAccount(customChainId?: number) {
+  const chainId = customChainId
   const chains = useChains()
   const chain = chains.find((c) => c.id === chainId)
   
   return useQuery({
     queryKey: ['storedLocalAccount', chainId],
     queryFn: () => {
-      const stored = getStoredLocalAccount(chainId)
+      const stored = getStoredLocalAccount(chainId || 0)
       if (!stored || !chain) return null
       
       // Return just the basic info - wallet client will be recreated when needed
@@ -102,24 +149,30 @@ export function useStoredLocalAccount() {
   })
 }
 
-export function useLocalAccountBalance() {
-  const { data: storedAccount } = useStoredLocalAccount()
+export function useLocalAccountBalance(customChainId?: number) {
+  const { data: storedAccount } = useStoredLocalAccount(customChainId)
+
+  console.log('storedAccount', storedAccount, customChainId)
   
   return useBalance({
     address: storedAccount?.address,
+    chainId: customChainId,
   })  
 }
 
 export function useCreatePasskeyDelegation({
   contractAddress,
   addLog,
+  chainId: customChainId,
 }: {
   contractAddress: Address
   addLog?: (message: string | React.ReactNode) => void
+  chainId?: number
 }) {
   const queryClient = useQueryClient()
   const { data: metamaskWallet } = useWalletClient()
-  const chainId = useChainId()
+  const wagmiChainId = useChainId()
+  const chainId = customChainId || wagmiChainId
   const chains = useChains()
   const chain = chains.find((c) => c.id === chainId)
   
@@ -242,9 +295,10 @@ export function useCurrentWalletClient() {
   })
 }
 
-export function useClearDelegation() {
+export function useClearDelegation(customChainId?: number) {
   const queryClient = useQueryClient()
-  const chainId = useChainId()
+  const wagmiChainId = useChainId()
+  const chainId = customChainId || wagmiChainId
   
   return useMutation({
     mutationKey: ['clearDelegationMulti'],
@@ -262,6 +316,107 @@ export function useClearDelegation() {
     },
     onError: (error) => {
       console.error('Failed to clear delegation:', error)
+    },
+  })
+}
+
+export function useExecuteTokenOperation({
+  addLog,
+  tokenAddress,
+}: {
+  addLog?: (message: string | React.ReactNode) => void
+  tokenAddress: Address
+}) {
+  const executeWithPasskeyMutation = useExecuteWithPasskey({ addLog })
+  
+  return useMutation({
+    mutationKey: ['executeTokenOperation'],
+    mutationFn: async ({ 
+      operation, 
+      amount, 
+      recipient,
+      spender,
+    }: { 
+      operation: TokenOperation
+      amount: bigint
+      recipient?: Address
+      spender?: Address
+    }) => {
+      let call: Call
+      
+      switch (operation) {
+        case 'mint':
+          if (recipient) {
+            call = createMintCall(tokenAddress, recipient, amount)
+            addLog?.(`Minting ${amount} tokens to ${recipient}`)
+          } else {
+            call = createMintToSelfCall(tokenAddress, amount)
+            addLog?.(`Minting ${amount} tokens to self`)
+          }
+          break
+        case 'transfer':
+          if (!recipient) throw new Error('Recipient required for transfer')
+          call = createTransferCall(tokenAddress, recipient, amount)
+          addLog?.(`Transferring ${amount} tokens to ${recipient}`)
+          break
+        case 'approve':
+          if (!spender) throw new Error('Spender required for approve')
+          call = createApproveCall(tokenAddress, spender, amount)
+          addLog?.(`Approving ${spender} to spend ${amount} tokens`)
+          break
+        default:
+          throw new Error('Invalid operation')
+      }
+      
+      return executeWithPasskeyMutation.mutateAsync({ calls: [call] })
+    },
+    onError: (error) => {
+      console.error('Failed to execute token operation:', error)
+    },
+  })
+}
+
+export function useExecuteSnojOperation({
+  addLog,
+  snojContractAddress,
+}: {
+  addLog?: (message: string | React.ReactNode) => void
+  snojContractAddress: Address
+}) {
+  const executeWithPasskeyMutation = useExecuteWithPasskey({ addLog })
+  
+  return useMutation({
+    mutationKey: ['executeSnojOperation'],
+    mutationFn: async ({ 
+      operation,
+      testNumber,
+      calls,
+    }: { 
+      operation: 'test' | 'execute'
+      testNumber?: bigint
+      calls?: Call[]
+    }) => {
+      let call: Call
+      
+      switch (operation) {
+        case 'test':
+          if (testNumber === undefined) throw new Error('Test number required for test operation')
+          call = createSnojTestCall(snojContractAddress, testNumber)
+          addLog?.(`Calling snoj test function with number: ${testNumber}`)
+          break
+        case 'execute':
+          if (!calls || calls.length === 0) throw new Error('Calls required for execute operation')
+          call = createSnojExecuteCall(snojContractAddress, calls)
+          addLog?.(`Executing ${calls.length} calls through snoj contract`)
+          break
+        default:
+          throw new Error('Invalid snoj operation')
+      }
+      
+      return executeWithPasskeyMutation.mutateAsync({ calls: [call] })
+    },
+    onError: (error) => {
+      console.error('Failed to execute snoj operation:', error)
     },
   })
 }

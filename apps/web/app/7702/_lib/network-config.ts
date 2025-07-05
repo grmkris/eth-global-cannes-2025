@@ -17,7 +17,7 @@ export const networkConfigs: Record<number, NetworkConfig> = {
   },
   // Ethereum Sepolia
   11155111: {
-    webAuthnDelegationAddress: '0xCAC397a50dA32D2324f1Dea70a3aF1203650204E',
+    webAuthnDelegationAddress: '0xAabD36cceC2dCbEdcD16dB32fC60cd2FFF10d895',
     simpleMintableTokenAddress: undefined, // Add when deployed
     fallbackP256VerifierAddress: "0x9F66232B2d3A853b9D0a1eF603635Ca9bCc3C9Fb", // Add when deployed
     snojContractAddress: '0x40e03c561eCC97aA2A44C2A1453fFBF4305CccC7',

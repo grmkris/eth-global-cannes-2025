@@ -13,6 +13,7 @@ import {
   keccak256,
   encodeAbiParameters,
   parseAbiParameters,
+  createPublicClient,
 } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { sign as webauthnSign } from 'webauthn-p256'
@@ -262,8 +263,18 @@ export async function executeWithPasskey({
     
     addLog?.('Authenticating with passkey...')
     
+    const publicClient = createPublicClient({
+      chain: walletClient.chain,
+      transport: http(),
+    })
     // Get current nonce from storage (in production, fetch from contract)
-    const currentNonce = getNonce()
+    const currentNonce = await publicClient.readContract({
+      address: networkConfigs[walletClient.chain?.id ?? 0]?.webAuthnDelegationAddress ?? '0x0000000000000000000000000000000000000000',
+      abi: passkeyDelegationAbi,
+      functionName: 'nonce',
+    })
+
+    console.log('currentNonce', currentNonce)
     
     // Encode the calls and nonce for signing
     const messageToSign = encodeAbiParameters(

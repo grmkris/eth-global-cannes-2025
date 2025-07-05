@@ -32,11 +32,12 @@ import { LedgerConnect } from './components/LedgerConnect'
 import { CopyableAddress } from './_components/CopyableAddress'
 import { IthacaDemo } from './_lib/ithaca/ithaca'
 import { LedgerSigningDemo } from './components/LedgerSigningDemo'
+import { LedgerAuthDemo } from './components/LedgerAuthDemo'
+import { LedgerFullDemo } from './components/LedgerFullDemo'
 
 // Replace with your deployed delegation contract address
 const CONTRACT_ADDRESS = '0x1234567890123456789012345678901234567890' as const
 import { getNetworkConfig, getContractAddress } from './_lib/network-config'
-import { LedgerAuthDemo } from './components/LedgerAuthDemo'
 
 export default function EIP7702Page() {
   const { address: connectedAddress, isConnected } = useAccount()
@@ -271,6 +272,9 @@ export default function EIP7702Page() {
           <CardContent>
             <LedgerSigningDemo />
             <LedgerAuthDemo />
+            <div className="mt-6">
+              <LedgerFullDemo />
+            </div>
           </CardContent>
         </Card>
 

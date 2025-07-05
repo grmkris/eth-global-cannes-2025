@@ -43,6 +43,7 @@ export function useLedger() {
           
           // Get account address
           getAccountAddress().then(address => {
+            console.log("Account address:", address);
             setAccountAddress(address);
           }).catch(err => {
             console.error("Failed to get account address:", err);

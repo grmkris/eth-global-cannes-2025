@@ -8,8 +8,10 @@ import { Alert, AlertDescription } from '@workspace/ui/components/alert'
 import { Loader2, Send, CheckCircle, XCircle, Shield } from 'lucide-react'
 import { useChains } from 'wagmi'
 import { getContractAddress, networkConfigs } from '../_lib/network-config'
-import { createLedgerAuthorization } from '../hooks/ledger-eip-7702'
+import { createLedgerAuthorization, sendLedgerTransactionWithAuthorization, waitForLedgerTransaction } from '../hooks/ledger-eip-7702'
 import { sepolia } from 'viem/chains'
+import { type Hex, encodeFunctionData } from 'viem'
+import { passkeyDelegationAbi } from '../_lib/webauthn_delegation_abi'
 
 export function LedgerAuthDemo() {
   const { 
@@ -26,6 +28,9 @@ export function LedgerAuthDemo() {
   const [isAuthorizing, setIsAuthorizing] = useState(false)
   const [authorization, setAuthorization] = useState<any>(null)
   const [authError, setAuthError] = useState<string | null>(null)
+  const [isSendingTx, setIsSendingTx] = useState(false)
+  const [txHash, setTxHash] = useState<Hex | null>(null)
+  const [txReceipt, setTxReceipt] = useState<any>(null)
 
 
 
@@ -37,8 +42,8 @@ export function LedgerAuthDemo() {
       setAuthError(null)
       setAuthorization(null)
       
-      // Use the first chain (you can make this configurable)
-      const chain = chains[0]
+      // Use sepolia for this demo
+      const chain = sepolia
       
       // Get the appropriate contract address for the chain
       const contractAddress = networkConfigs[11155111]?.webAuthnDelegationAddress || '0x0000000000000000000000000000000000000000'
@@ -50,13 +55,66 @@ export function LedgerAuthDemo() {
         chainId: 11155111,
       })
 
-
       setAuthorization(auth)
     } catch (err) {
       console.error('Failed to create authorization:', err)
       setAuthError(err instanceof Error ? err.message : 'Failed to create authorization')
     } finally {
       setIsAuthorizing(false)
+    }
+  }
+
+  const handleSendTransaction = async () => {
+    if (!authorization || !accountAddress) return
+    
+    try {
+      setIsSendingTx(true)
+      setAuthError(null)
+      setTxHash(null)
+      setTxReceipt(null)
+      
+      // Example: Initialize the delegation contract with a dummy public key
+      // In a real implementation, you'd use actual passkey public key coordinates
+      const dummyPubKeyX = BigInt('0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef')
+      const dummyPubKeyY = BigInt('0xfedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321')
+      
+      // Encode the initialize function call
+      const initializeData = encodeFunctionData({
+        abi: passkeyDelegationAbi,
+        functionName: 'initialize',
+        args: [dummyPubKeyX, dummyPubKeyY],
+      })
+      
+      console.log("Sending transaction with authorization:", {
+        chain: sepolia,
+        authorization,
+        to: accountAddress as Hex, // Self-call to initialize
+        value: BigInt(0),
+        data: initializeData as Hex,
+      })
+      // Send transaction with authorization
+      const hash = await sendLedgerTransactionWithAuthorization({
+        chain: sepolia,
+        authorization,
+        to: accountAddress as Hex, // Self-call to initialize
+        value: BigInt(0),
+        data: initializeData as Hex,
+      })
+      
+      setTxHash(hash)
+      
+      // Wait for receipt
+      const receipt = await waitForLedgerTransaction({
+        chain: sepolia,
+        hash,
+      })
+      
+      setTxReceipt(receipt)
+    } catch (err) {
+      console.error('Failed to send transaction:', err)
+      setAuthError(err instanceof Error ? err.message : 'Failed to send transaction')
+    } finally {
+      setIsSendingTx(false)
     }
   }
 
@@ -139,15 +197,61 @@ export function LedgerAuthDemo() {
 
             {/* Authorization Result */}
             {authorization && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="text-sm font-medium text-green-600">Authorization Created Successfully!</div>
+                  <div className="p-3 bg-muted rounded-md space-y-1">
+                    <div className="text-xs"><strong>Chain ID:</strong> {authorization.chainId}</div>
+                    <div className="text-xs"><strong>Contract:</strong> {authorization.contractAddress}</div>
+                    <div className="text-xs"><strong>Nonce:</strong> {authorization.nonce?.toString()}</div>
+                    <div className="text-xs"><strong>R:</strong> {authorization.r?.slice(0, 10)}...</div>
+                    <div className="text-xs"><strong>S:</strong> {authorization.s?.slice(0, 10)}...</div>
+                    <div className="text-xs"><strong>V:</strong> {authorization.v?.toString()}</div>
+                  </div>
+                </div>
+                
+                {/* Send Transaction Button */}
+                <Button 
+                  onClick={handleSendTransaction}
+                  disabled={isSendingTx}
+                  className="w-full"
+                >
+                  {isSendingTx ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending Transaction...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="mr-2 h-4 w-4" />
+                      Send Transaction with Authorization
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+            
+            {/* Transaction Result */}
+            {txHash && (
               <div className="space-y-2">
-                <div className="text-sm font-medium text-green-600">Authorization Created Successfully!</div>
+                <div className="text-sm font-medium">Transaction Sent!</div>
                 <div className="p-3 bg-muted rounded-md space-y-1">
-                  <div className="text-xs"><strong>Chain ID:</strong> {authorization.chainId}</div>
-                  <div className="text-xs"><strong>Contract:</strong> {authorization.contractAddress}</div>
-                  <div className="text-xs"><strong>Nonce:</strong> {authorization.nonce?.toString()}</div>
-                  <div className="text-xs"><strong>R:</strong> {authorization.r?.slice(0, 10)}...</div>
-                  <div className="text-xs"><strong>S:</strong> {authorization.s?.slice(0, 10)}...</div>
-                  <div className="text-xs"><strong>V:</strong> {authorization.v?.toString()}</div>
+                  <div className="text-xs break-all">
+                    <strong>Hash:</strong> {txHash}
+                  </div>
+                  <a 
+                    href={`https://sepolia.etherscan.io/tx/${txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-500 hover:underline"
+                  >
+                    View on Etherscan →
+                  </a>
+                  {txReceipt && (
+                    <div className="text-xs mt-2">
+                      <strong>Status:</strong> {txReceipt.status === 'success' ? '✅ Success' : '❌ Failed'}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

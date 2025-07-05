@@ -6,6 +6,7 @@ import {
 } from "@ledgerhq/device-signer-kit-ethereum";
 import { ethers, Signature as EthersSignature, hashAuthorization, Transaction } from "ethers";
 import { DeviceActionStatus } from "@ledgerhq/device-management-kit";
+import type { TransactionRequest, TransactionRequestEIP7702 } from "viem";
 
 
 // Global variables to store subscriptions and session info
@@ -146,12 +147,18 @@ export function getCurrentSignerEth(): SignerEth | null {
   return currentSignerEth;
 }
 
+function bigIntReplacer(_key: string, value: any): any {
+  return typeof value === 'bigint' ? value.toString() : value;
+}
+
+const serializeTx = (txObject: TransactionRequestEIP7702) => {
+  // Option A: JSON serialization (simple but order-sensitive)
+  return JSON.stringify(txObject, bigIntReplacer);
+};
+
 // Sign a transaction using the Ledger device with observable pattern
-export function signTransactionWithObservable(
-  transaction: any,
-  onStateChange?: (state: any) => void,
-  onError?: (error: any) => void,
-  onComplete?: () => void
+export async function signTransactionWithObservable(
+  transaction: TransactionRequestEIP7702,
 ) {
   if (!currentSignerEth) {
     throw new Error("No Ledger device connected. Please connect a device first.");
@@ -159,46 +166,28 @@ export function signTransactionWithObservable(
 
   try {
     console.log("Signing transaction with Ledger device:", transaction);
-    
-    const txx = Transaction.from(transaction);
-    const serializedTx = txx.unsignedSerialized.substring(2);
-    console.log("Serialized transaction:", serializedTx);
+      
+      const serializedTx = serializeTx(transaction);
+      console.log("Serialized transaction:", serializedTx);
 
     // Log the transaction object for debugging
     console.log("Transaction object:", {
-      to: txx.to,
-      value: txx.value.toString(),
-      gasPrice: txx.gasPrice?.toString(),
-      gasLimit: txx.gasLimit.toString(),
-      nonce: txx.nonce,
-      chainId: txx.chainId,
-      data: txx.data,
+      ...transaction,
     });
 
     const derivationPath = "44'/60'/0'/0/0";
-    
+
     // Convert transaction to Uint8Array
-    const transactionBytes = new Uint8Array(Buffer.from(txx.unsignedSerialized.substring(2), 'hex'));
+    const transactionBytes = new Uint8Array(Buffer.from(serializedTx, 'hex'));
     
-    return currentSignerEth.signTransaction(derivationPath, transactionBytes).observable.subscribe({
-      next: (state) => {
-        console.log("Sign state:", state);
-        onStateChange?.(state);
-      },
-      error: (error) => {
-        console.error("Subscription error:", error);
-      
-        
-        onError?.(error);
-      },
-      complete: () => {
-        console.log("Transaction signing completed");
-        onComplete?.();
-      },
-    });
+    const result = await currentSignerEth.signMessage(derivationPath, transactionBytes).observable.toPromise();
+    console.log("Sign transaction result:", result);
+    if (result?.status === DeviceActionStatus.Completed) {
+      return result.output;
+    }
+    throw new Error(`Failed to sign transaction: ${result?.status}`);
   } catch (error) {
     console.error("Failed to sign transaction:", error);
-    onError?.(error);
     throw new Error(`Failed to sign transaction: ${error instanceof Error ? error.message : "Unknown error"}`);
   }
 }
@@ -269,16 +258,13 @@ export async function getAccountAddress(): Promise<string> {
   if (!currentSignerEth) {
     throw new Error("No Ledger device connected. Please connect a device first.");
   }
-
-  try {
-    const result = await currentSignerEth.getAddress("m/44'/60'/0'/0/0");
-    console.log("Ledger account address:", result);
-    // Handle the result based on its actual structure
-    return typeof result === 'string' ? result : (result as any).address || result.toString();
-  } catch (error) {
-    console.error("Failed to get account address:", error);
-    throw new Error(`Failed to get account address: ${error instanceof Error ? error.message : "Unknown error"}`);
+  const result = await currentSignerEth.getAddress("44'/60'/0'/0/0").observable.toPromise();
+  console.log("Ledger account address:", result);
+  if (result?.status === DeviceActionStatus.Completed) {
+    console.log("Ledger account address:", result.output.address);
+    return result.output.address;
   }
+  throw new Error(`Failed to get account address: ${result?.status}`);
 }
 
 // Export DMK instance for direct use

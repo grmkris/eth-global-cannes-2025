@@ -1,11 +1,12 @@
-import { type Address, type Hex, type WalletClient, type Chain } from 'viem'
-import { createWalletClient, http } from 'viem'
+import { type Address, type Hex, type WalletClient, type Chain, type PublicClient, type TransactionReceipt } from 'viem'
+import { createWalletClient, http, createPublicClient } from 'viem'
 import { 
   signDelegationAuthorization, 
   getAccountAddress,
   getCurrentSignerEth,
   getCurrentSessionId,
-  signDelegationAuthorizationRaw
+  signDelegationAuthorizationRaw,
+  signTransactionWithObservable,
 } from '../lib/ledgerService'
 
 export interface LedgerAuthorizationParams {
@@ -123,4 +124,76 @@ export async function createLedgerWalletClientWithAuth({
   
   return { walletClient, authorization }
 }
+function bigIntReplacer(_key: string, value: any): any {
+  return typeof value === 'bigint' ? value.toString() : value;
+}
 
+
+
+/**
+ * Sends a transaction with EIP-7702 authorization list
+ */
+export async function sendLedgerTransactionWithAuthorization({
+  chain,
+  authorization,
+  to,
+  value = BigInt(0),
+  data = '0x' as Hex,
+}: {
+  chain: Chain
+  authorization: any
+  to: Address
+  value?: bigint
+  data?: Hex
+}): Promise<Hex> {
+  try {
+    const publicClient = createPublicClient({
+      chain,
+      transport: http(),
+    })
+    
+    // Build the transaction with authorization list
+    const transaction = {
+      to,
+      value,
+      data,
+      authorizationList: [authorization],
+      chainId: chain.id,
+      from: authorization.address,
+      // Let the provider fill gas values
+    }
+    
+    // Sign the transaction using Ledger
+    const signedTx = await signTransactionWithObservable(transaction)
+    
+    // Send the raw transaction
+    const hash = await publicClient.sendRawTransaction({
+      serializedTransaction: signedTx as unknown as Hex,
+    })
+    
+    return hash
+  } catch (error) {
+    console.error('Failed to send transaction with authorization:', error)
+    throw error
+  }
+}
+
+/**
+ * Waits for a transaction receipt
+ */
+export async function waitForLedgerTransaction({
+  chain,
+  hash,
+}: {
+  chain: Chain
+  hash: Hex
+}): Promise<TransactionReceipt> {
+  const publicClient = createPublicClient({
+    chain,
+    transport: http(),
+  })
+  
+  return publicClient.waitForTransactionReceipt({
+    hash,
+  })
+}

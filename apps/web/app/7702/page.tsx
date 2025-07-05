@@ -26,10 +26,12 @@ import {
 import { LocalAccountNetworkSwitch } from './_components/LocalAccountNetworkSwitch'
 import { encodeFunctionData, type Hex } from 'viem'
 import { CheckCircle2, AlertCircle, Loader2, Key, Wallet, ArrowRight, Globe, Shield, HardDrive, Network, Copy, Check } from 'lucide-react'
+import { CheckCircle2, AlertCircle, Loader2, Key, Wallet, ArrowRight, Globe, Shield, HardDrive, Network, MessageSquare } from 'lucide-react'
 import { passkeyDelegationAbi } from './_lib/webauthn_delegation_abi'
 import { LedgerConnect } from './components/LedgerConnect'
 import { CopyableAddress } from './_components/CopyableAddress'
 import { IthacaDemo } from './_lib/ithaca/ithaca'
+import { LedgerSigningDemo } from './components/LedgerSigningDemo'
 
 // Replace with your deployed delegation contract address
 const CONTRACT_ADDRESS = '0x1234567890123456789012345678901234567890' as const
@@ -124,8 +126,8 @@ export default function EIP7702Page() {
         addLog('No wallet client available')
         return
       }
-      
-      await executeWithPasskeyMutation.mutateAsync({ 
+
+      await executeWithPasskeyMutation.mutateAsync({
         calls: [snojTestCall1, snojTestCall2, snojTestCall3, snojTestCall4],
         walletClient: currentWalletClient
       })
@@ -163,7 +165,7 @@ export default function EIP7702Page() {
             <TabsTrigger value="eip7702">EIP-7702 Demo</TabsTrigger>
             <TabsTrigger value="ithaca">Ithaca Demo</TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="eip7702" className="space-y-6 mt-6">
             <div className="flex items-center justify-end">
               {isLocalAccountMode ? (
@@ -235,6 +237,38 @@ export default function EIP7702Page() {
                 </div>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Ledger Connection */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Hardware Wallet Connection
+            </CardTitle>
+            <CardDescription>
+              Connect your Ledger hardware wallet for additional security
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <LedgerConnect />
+          </CardContent>
+        </Card>
+
+        {/* Ledger Signing Demo */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Ledger Signing Demo
+            </CardTitle>
+            <CardDescription>
+              Test message signing, typed data signing, and transaction signing with your Ledger device
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <LedgerSigningDemo />
           </CardContent>
         </Card>
 
@@ -377,13 +411,13 @@ export default function EIP7702Page() {
                   <p className="text-sm text-muted-foreground">
                     Connect your Ledger hardware wallet or import an existing private key to create a passkey delegation.
                   </p>
-                  
+
                   {/* Ledger Connection */}
                   <div className="space-y-4">
                     <h4 className="text-sm font-medium">Option 1: Connect Hardware Wallet</h4>
                     <LedgerConnect />
                   </div>
-                  
+
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">
                       <span className="w-full border-t" />
@@ -392,7 +426,7 @@ export default function EIP7702Page() {
                       <span className="bg-background px-2 text-muted-foreground">Or</span>
                     </div>
                   </div>
-                  
+
                   {/* Private Key Input */}
                   <div className="space-y-4">
                     <h4 className="text-sm font-medium">Option 2: Import Private Key</h4>
@@ -409,7 +443,7 @@ export default function EIP7702Page() {
                         Enter your private key starting with 0x (64 hex characters)
                       </p>
                     </div>
-                    
+
                     {privateKey && privateKey.length === 66 && privateKey.startsWith('0x') && (
                       <div className="space-y-4">
                         <Alert>
@@ -418,8 +452,8 @@ export default function EIP7702Page() {
                             Make sure your wallet has sufficient balance to pay for gas fees before creating a delegation.
                           </AlertDescription>
                         </Alert>
-                        
-                        <Button 
+
+                        <Button
                           onClick={() => handleCreateDelegation('cold')}
                           disabled={createDelegationMutation.isPending || !isNetworkSupported}
                           className="w-full"
@@ -475,9 +509,9 @@ export default function EIP7702Page() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Delegated EOA:</span>
-                  <CopyableAddress 
-                    address={currentWalletClient?.account?.address || storedLocalAccount?.address || connectedAddress || 'Unknown'} 
-                    chainId={chainId} 
+                  <CopyableAddress
+                    address={currentWalletClient?.account?.address || storedLocalAccount?.address || connectedAddress || 'Unknown'}
+                    chainId={chainId}
                   />
                 </div>
                 <div className="flex items-center justify-between">
@@ -574,7 +608,7 @@ export default function EIP7702Page() {
           </CardContent>
         </Card>
         </TabsContent>
-        
+
         <TabsContent value="ithaca" className="mt-6">
           <IthacaDemo />
         </TabsContent>

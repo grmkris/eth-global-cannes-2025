@@ -204,6 +204,16 @@ export async function executeWithPasskey({
     }
 
     addLog?.('Authenticating with passkey...')
+    const publicClient = createPublicClient({
+      chain: walletClient.chain,
+      transport: http(),
+    })
+    const nonce = await publicClient.readContract({
+      address: networkConfigs[walletClient.chain?.id ?? 0]?.webAuthnDelegationAddress ?? '0x0000000000000000000000000000000000000000',
+      abi: passkeyDelegationAbi,
+      functionName: 'getNonce',
+      args: [eoaAccount.address],
+    })
 
     // Encode the calls and nonce for signing
     const messageToSign = encodeAbiParameters(
@@ -211,10 +221,10 @@ export async function executeWithPasskey({
       [
         calls.map(call => ({
           to: call.to,
-          value: call.value ?? 0n,
-          data: call.data ?? '0x',
+          value: call.value,
+          data: call.data,
         })),
-        0n,
+        nonce,
       ]
     )
 
@@ -269,7 +279,7 @@ export async function executeWithPasskey({
       address: eoaAccount.address,
       abi: passkeyDelegationAbi,
       functionName: 'execute',
-      args: [calls, 0n, webAuthnSignature],
+      args: [eoaAccount.address, calls, nonce, webAuthnSignature],
       account: eoaAccount,
       chain: walletClient.chain,
     })

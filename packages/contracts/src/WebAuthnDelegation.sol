@@ -19,12 +19,16 @@ contract WebAuthnDelegation {
         bytes data;
     }
     
-    // Store the WebAuthn public key (x, y coordinates)
-    uint256 public webAuthnPubKeyX;
-    uint256 public webAuthnPubKeyY;
+    // Struct to store wallet data
+    struct WalletData {
+        uint256 pubKeyX;
+        uint256 pubKeyY;
+        uint256 nonce;
+        bool initialized;
+    }
     
-    // Nonce for replay protection
-    uint256 public nonce;
+    // Mapping from wallet address to wallet data
+    mapping(address => WalletData) public wallets;
     
     // P256 verifiers configuration
     P256.Verifiers public immutable verifiers;
@@ -38,50 +42,56 @@ contract WebAuthnDelegation {
     }
     
     function initialize(uint256 _pubKeyX, uint256 _pubKeyY) external payable {
-        // require(webAuthnPubKeyX == 0 && webAuthnPubKeyY == 0, "Already initialized");
+        require(!wallets[msg.sender].initialized, "Already initialized");
         require(_pubKeyX != 0 && _pubKeyY != 0, "Invalid public key");
         
-        webAuthnPubKeyX = _pubKeyX;
-        webAuthnPubKeyY = _pubKeyY;
+        wallets[msg.sender] = WalletData({
+            pubKeyX: _pubKeyX,
+            pubKeyY: _pubKeyY,
+            nonce: 0,
+            initialized: true
+        });
         
-        emit Initialized(address(this), _pubKeyX, _pubKeyY);
+        emit Initialized(msg.sender, _pubKeyX, _pubKeyY);
         emit Log("WebAuthn Delegation initialized");
     }
     
     /**
      * @notice Execute calls using WebAuthn signature verification
+     * @param wallet The wallet address that signed the transaction
      * @param calls Array of calls to execute
      * @param expectedNonce Expected nonce value for replay protection
      * @param webAuthnSignature Encoded WebAuthn signature data
      */
     function execute(
+        address wallet,
         Call[] calldata calls,
         uint256 expectedNonce,
         bytes calldata webAuthnSignature        
     ) external returns (bytes[] memory results) {
-        require(expectedNonce == nonce, "Invalid nonce");
-        require(webAuthnPubKeyX != 0 || webAuthnPubKeyY != 0, "Not initialized");
+        WalletData storage walletData = wallets[wallet];
+        
+        require(walletData.initialized, "Wallet not initialized");
+        require(expectedNonce == walletData.nonce, "Invalid nonce");
         
         // Compute the challenge (message hash) that was signed
-        bytes32 challenge = keccak256(abi.encode(calls, expectedNonce));
+        bytes32 challenge = keccak256(abi.encode(wallet, calls, expectedNonce));
         
         // Verify WebAuthn signature using the WebAuthn library
         // We require user presence (0x01) flag to be set
-        // bool valid = true;
-
         bool valid = WebAuthn.verifySignature(
             challenge,
             webAuthnSignature,
             WebAuthn.USER_PRESENCE,
-            webAuthnPubKeyX,
-            webAuthnPubKeyY,
+            walletData.pubKeyX,
+            walletData.pubKeyY,
             verifiers
         );
         
         require(valid, "Invalid WebAuthn signature");
         
         // Increment nonce
-        nonce++;
+        walletData.nonce++;
         
         // Execute all calls
         results = new bytes[](calls.length);
@@ -99,6 +109,7 @@ contract WebAuthnDelegation {
      * @notice Execute a single call (convenience function)
      */
     function executeSingle(
+        address wallet,
         address to,
         uint256 value,
         bytes calldata data,
@@ -108,7 +119,7 @@ contract WebAuthnDelegation {
         Call[] memory calls = new Call[](1);
         calls[0] = Call(to, value, data);
         
-        bytes[] memory results = this.execute(calls, expectedNonce, webAuthnSignature);
+        bytes[] memory results = this.execute(wallet, calls, expectedNonce, webAuthnSignature);
         return results[0];
     }
     
@@ -116,12 +127,18 @@ contract WebAuthnDelegation {
     receive() external payable {}
     
     // Getter for public key
-    function getPublicKey() external view returns (uint256 x, uint256 y) {
-        return (webAuthnPubKeyX, webAuthnPubKeyY);
+    function getPublicKey(address wallet) external view returns (uint256 x, uint256 y) {
+        WalletData storage walletData = wallets[wallet];
+        return (walletData.pubKeyX, walletData.pubKeyY);
     }
     
     // Check if initialized
-    function isInitialized() external view returns (bool) {
-        return webAuthnPubKeyX != 0 || webAuthnPubKeyY != 0;
+    function isInitialized(address wallet) external view returns (bool) {
+        return wallets[wallet].initialized;
+    }
+    
+    // Get wallet nonce
+    function getNonce(address wallet) external view returns (uint256) {
+        return wallets[wallet].nonce;
     }
 }

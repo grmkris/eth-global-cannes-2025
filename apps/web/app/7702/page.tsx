@@ -17,11 +17,14 @@ import {
   useExecuteWithPasskey, 
   usePasskeyDelegation, 
   useClearDelegation,
-  useCurrentWalletClient
+  useCurrentWalletClient,
+  useGenerateLocalAccount,
+  useStoredLocalAccount,
+  useLocalAccountBalance
 } from './_lib/eip-7702-hooks'
-import { example_abi } from './_lib/example_abi'
 import { encodeFunctionData, type Hex } from 'viem'
 import { CheckCircle2, AlertCircle, Loader2, Key, Wallet, ArrowRight, Globe, Shield, HardDrive } from 'lucide-react'
+import { passkeyDelegationAbi } from './_lib/webauthn_delegation_abi'
 
 // Replace with your deployed delegation contract address
 const CONTRACT_ADDRESS = '0x1234567890123456789012345678901234567890' as const
@@ -43,6 +46,9 @@ export default function EIP7702Page() {
   // React Query hooks
   const { data: delegation } = usePasskeyDelegation()
   const { data: currentWalletClient } = useCurrentWalletClient()
+  const { data: storedLocalAccount } = useStoredLocalAccount()
+  const { data: localBalance } = useLocalAccountBalance()
+  const generateLocalAccountMutation = useGenerateLocalAccount({ addLog })
   const createDelegationMutation = useCreatePasskeyDelegation({
     contractAddress: CONTRACT_ADDRESS,
     addLog,
@@ -72,8 +78,9 @@ export default function EIP7702Page() {
     try {
       // Example: Call the ping function on the delegated contract
       const pingCalldata = encodeFunctionData({
-        abi: example_abi,
-        functionName: 'ping',
+        abi: passkeyDelegationAbi,
+        functionName: 'executeSingle',
+        args: [CONTRACT_ADDRESS, 0n, pingCalldata],
       })
       
       const calls: Call[] = [
@@ -213,20 +220,64 @@ export default function EIP7702Page() {
                   <p className="text-sm text-muted-foreground">
                     Generate a new EOA in-memory. The private key will be created randomly for demo purposes.
                   </p>
-                  <Button 
-                    onClick={() => handleCreateDelegation('local')}
-                    disabled={createDelegationMutation.isPending}
-                    className="w-full"
-                  >
-                    {createDelegationMutation.isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Creating Delegation...
-                      </>
-                    ) : (
-                      'Generate Local Account & Create Delegation'
-                    )}
-                  </Button>
+                  
+                  {!storedLocalAccount ? (
+                    <Button 
+                      onClick={() => generateLocalAccountMutation.mutate()}
+                      disabled={generateLocalAccountMutation.isPending}
+                      className="w-full"
+                    >
+                      {generateLocalAccountMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Generating EOA...
+                        </>
+                      ) : (
+                        'Step 1: Generate Local EOA'
+                      )}
+                    </Button>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="rounded-lg border p-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">EOA Address:</span>
+                          <Badge variant="outline" className="font-mono text-xs">
+                            {storedLocalAccount.address}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">Balance:</span>
+                          <Badge variant={localBalance && localBalance.value > 0n ? "default" : "destructive"}>
+                            {localBalance ? `${(Number(localBalance.value) / 1e18).toFixed(6)} ${localBalance.symbol}` : 'Loading...'}
+                          </Badge>
+                        </div>
+                      </div>
+                      
+                      {localBalance && localBalance.value === 0n && (
+                        <Alert>
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
+                            Your EOA has no balance. Please fund it with some ETH to pay for gas fees before creating a delegation.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      
+                      <Button 
+                        onClick={() => handleCreateDelegation('local')}
+                        disabled={createDelegationMutation.isPending || !localBalance || localBalance.value === 0n}
+                        className="w-full"
+                      >
+                        {createDelegationMutation.isPending ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Creating Delegation...
+                          </>
+                        ) : (
+                          'Step 2: Create Passkey Delegation'
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </TabsContent>
                 
                 <TabsContent value="cold" className="space-y-4 mt-4">
@@ -246,20 +297,32 @@ export default function EIP7702Page() {
                       Enter your private key starting with 0x (64 hex characters)
                     </p>
                   </div>
-                  <Button 
-                    onClick={() => handleCreateDelegation('cold')}
-                    disabled={createDelegationMutation.isPending || !privateKey}
-                    className="w-full"
-                  >
-                    {createDelegationMutation.isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Creating Delegation...
-                      </>
-                    ) : (
-                      'Import Wallet & Create Delegation'
-                    )}
-                  </Button>
+                  
+                  {privateKey && privateKey.length === 66 && privateKey.startsWith('0x') && (
+                    <div className="space-y-4">
+                      <Alert>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          Make sure your wallet has sufficient balance to pay for gas fees before creating a delegation.
+                        </AlertDescription>
+                      </Alert>
+                      
+                      <Button 
+                        onClick={() => handleCreateDelegation('cold')}
+                        disabled={createDelegationMutation.isPending}
+                        className="w-full"
+                      >
+                        {createDelegationMutation.isPending ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Creating Delegation...
+                          </>
+                        ) : (
+                          'Create Passkey Delegation'
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </TabsContent>
               </Tabs>
             </CardContent>

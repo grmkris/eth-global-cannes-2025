@@ -27,7 +27,7 @@ import {
 } from './ithaca-hooks'
 import { LocalAccountNetworkSwitch } from '../../_components/LocalAccountNetworkSwitch'
 import { type Hex, parseEther, formatUnits } from 'viem'
-import { CheckCircle2, AlertCircle, Loader2, Key, Wallet, Shield, HardDrive, Network, Coins, Send, Flame, ArrowUpDown } from 'lucide-react'
+import { CheckCircle2, AlertCircle, Loader2, Key, Wallet, Shield, HardDrive, Network, Coins, Send, Flame, ArrowUpDown, Copy, Check } from 'lucide-react'
 import { CopyableAddress } from '../../_components/CopyableAddress'
 import { getNetworkConfig, getContractAddress } from '../network-config'
 
@@ -39,6 +39,7 @@ export function IthacaDemo() {
   const [logs, setLogs] = useState<Array<{ timestamp: string; message: string | React.ReactNode }>>([])
   const [privateKey, setPrivateKey] = useState<string>('')
   const [selectedWalletType, setSelectedWalletType] = useState<WalletType>('metamask')
+  const [copied, setCopied] = useState(false)
   
   // ERC20 operation states
   const [mintAmount, setMintAmount] = useState<string>('1000')
@@ -673,7 +674,41 @@ export function IthacaDemo() {
       {/* Activity Logs */}
       <Card>
         <CardHeader>
-          <CardTitle>Activity Logs</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Activity Logs</CardTitle>
+            {logs.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  const logText = logs.map(log => {
+                    const message = typeof log.message === 'string' 
+                      ? log.message 
+                      : (log.message as any)?.props?.children || String(log.message)
+                    return `[${log.timestamp}] ${message}`
+                  }).join('\n')
+                  
+                  navigator.clipboard.writeText(logText).then(() => {
+                    setCopied(true)
+                    setTimeout(() => setCopied(false), 2000)
+                  })
+                }}
+                className="h-8 px-2"
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-4 w-4 mr-1" />
+                    Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4 mr-1" />
+                    Copy Logs
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-[200px] w-full rounded-md border p-4">

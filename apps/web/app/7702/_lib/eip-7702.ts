@@ -13,10 +13,12 @@ import {
   keccak256,
   encodeAbiParameters,
   parseAbiParameters,
+  createPublicClient,
 } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { sign as webauthnSign } from 'webauthn-p256'
 import { passkeyDelegationAbi } from './webauthn_delegation_abi'
+import { networkConfigs } from './network-config'
 
 export type WalletType = 'metamask' | 'local' | 'cold'
 
@@ -30,76 +32,9 @@ let storedPublicKey: { x: bigint; y: bigint } | null = null
 
 export type Call = {
   to: Address
-  value?: bigint
-  data?: Hex
+  value: bigint
+  data: Hex
 }
-
-export type TokenOperation = 'mint' | 'transfer' | 'approve'
-
-/**
- * Helper function to create mint call data for SimpleMintableToken
- */
-export function createMintCall(tokenAddress: Address, recipient: Address, amount: bigint): Call {
-  const mintData = encodeAbiParameters(
-    parseAbiParameters('address to, uint256 amount'),
-    [recipient, amount]
-  )
-  
-  return {
-    to: tokenAddress,
-    value: 0n,
-    data: ('0x40c10f19' + mintData.slice(2)) as Hex, // mint(address,uint256) selector
-  }
-}
-
-/**
- * Helper function to create mintToSelf call data
- */
-export function createMintToSelfCall(tokenAddress: Address, amount: bigint): Call {
-  const mintData = encodeAbiParameters(
-    parseAbiParameters('uint256 amount'),
-    [amount]
-  )
-  
-  return {
-    to: tokenAddress,
-    value: 0n,
-    data: ('0xb745c833' + mintData.slice(2)) as Hex, // mintToSelf(uint256) selector
-  }
-}
-
-/**
- * Helper function to create transfer call data
- */
-export function createTransferCall(tokenAddress: Address, to: Address, amount: bigint): Call {
-  const transferData = encodeAbiParameters(
-    parseAbiParameters('address to, uint256 amount'),
-    [to, amount]
-  )
-  
-  return {
-    to: tokenAddress,
-    value: 0n,
-    data: ('0xa9059cbb' + transferData.slice(2)) as Hex, // transfer(address,uint256) selector
-  }
-}
-
-/**
- * Helper function to create approve call data
- */
-export function createApproveCall(tokenAddress: Address, spender: Address, amount: bigint): Call {
-  const approveData = encodeAbiParameters(
-    parseAbiParameters('address spender, uint256 amount'),
-    [spender, amount]
-  )
-  
-  return {
-    to: tokenAddress,
-    value: 0n,
-    data: ('0x095ea7b3' + approveData.slice(2)) as Hex, // approve(address,uint256) selector
-  }
-}
-
 /**
  * Helper function to create a test call for the snoj contract
  */
@@ -116,23 +51,11 @@ export function createSnojTestCall(contractAddress: Address, number: bigint): Ca
   }
 }
 
-/**
- * Helper function to create an execute call for the snoj contract
- */
-export function createSnojExecuteCall(contractAddress: Address, calls: Call[]): Call {
-  const executeData = encodeAbiParameters(
-    parseAbiParameters('(address to, uint256 value, bytes data)[] calls'),
-    [calls.map(call => ({
-      to: call.to,
-      value: call.value ?? 0n,
-      data: call.data ?? '0x',
-    }))]
-  )
-  
+export function createSnojReceiveCall(contractAddress: Address, amount: bigint): Call {
   return {
     to: contractAddress,
-    value: 0n,
-    data: ('0x13e7c9d8' + executeData.slice(2)) as Hex, // execute((address,uint256,bytes)[]) selector
+    data: '0x',
+    value: amount,
   }
 }
 
@@ -196,6 +119,7 @@ export async function createPasskeyDelegation({
     const authorization = await walletClient.signAuthorization({
       account: eoaAccount,
       contractAddress,
+      executor: 'self',
     })
     
     addLog?.('Sending delegation transaction...')
@@ -203,7 +127,7 @@ export async function createPasskeyDelegation({
     // Send the authorization transaction to delegate the EOA
     // This initializes the contract with the WebAuthn public key
     const hash = await walletClient.writeContract({
-      address: contractAddress,
+      address: eoaAccount.address,
       abi: passkeyDelegationAbi,
       functionName: 'initialize',
       args: [pubKeyX, pubKeyY],
@@ -251,10 +175,7 @@ export async function executeWithPasskey({
       throw new Error('No account found in wallet client')
     }
     
-    addLog?.('Authenticating with passkey...')
-    
-    // Get current nonce from storage (in production, fetch from contract)
-    const currentNonce = getNonce()
+    addLog?.('Authenticating with passkey...')  
     
     // Encode the calls and nonce for signing
     const messageToSign = encodeAbiParameters(
@@ -265,7 +186,7 @@ export async function executeWithPasskey({
           value: call.value ?? 0n,
           data: call.data ?? '0x',
         })),
-        currentNonce,
+        0n,
       ]
     )
     
@@ -316,13 +237,14 @@ export async function executeWithPasskey({
     // The WebAuthn signature has been created using the passkey!
     // In a production implementation with the WebAuthnDelegation contract:
     // 
-    // const hash = await walletClient.writeContract({
-    //   address: contractAddress,
-    //   abi: webauthn_delegation_abi,
-    //   functionName: 'execute',
-    //   args: [calls, currentNonce, webAuthnSignature],
-    //   account: eoaAccount,
-    // })
+     const hash = await walletClient.writeContract({
+       address: eoaAccount.address,
+       abi: passkeyDelegationAbi,
+       functionName: 'execute',
+       args: [calls, 0n, webAuthnSignature],
+       account: eoaAccount,
+       chain: walletClient.chain,
+     })
     //
     // The contract will:
     // 1. Verify the WebAuthn signature using the P256 library
@@ -332,19 +254,6 @@ export async function executeWithPasskey({
     //
     // For this demo with the simple Delegation contract,
     // we'll execute directly through the EOA but show the signature was created
-    const firstCall = calls[0]
-    if (!firstCall) throw new Error('No calls provided')
-    
-    const hash = await walletClient.sendTransaction({
-      to: firstCall.to,
-      data: firstCall.data,
-      value: firstCall.value ?? 0n,
-      account: eoaAccount,
-      chain: walletClient.chain,
-    })
-    
-    // Increment nonce for next transaction
-    incrementNonce()
     
     addLog?.(`Transaction executed: ${hash}`)
     addLog?.('Transaction completed using passkey signature!')
@@ -425,20 +334,4 @@ export function clearDelegation() {
   storedWalletType = null
   storedPublicKey = null
   localStorage.removeItem('webauthn_nonce')
-}
-
-/**
- * Get current nonce from localStorage (in production, fetch from contract)
- */
-function getNonce(): bigint {
-  const stored = localStorage.getItem('webauthn_nonce')
-  return stored ? BigInt(stored) : 0n
-}
-
-/**
- * Increment nonce in localStorage
- */
-function incrementNonce() {
-  const current = getNonce()
-  localStorage.setItem('webauthn_nonce', (current + 1n).toString())
 }

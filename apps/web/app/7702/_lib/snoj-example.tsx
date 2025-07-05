@@ -2,7 +2,7 @@
 
 import { useExecuteSnojOperation } from './eip-7702-hooks'
 import { getContractAddress } from './network-config'
-import { createTransferCall, type Call } from './eip-7702'
+import { createSnojReceiveCall, createSnojTestCall, type Call } from './eip-7702'
 import { type Address } from 'viem'
 
 // Example 1: Call the test function
@@ -22,8 +22,7 @@ export function SnojTestExample({
   const handleTestCall = async () => {
     try {
       await executeSnojOperation.mutateAsync({
-        operation: 'test',
-        testNumber: 42n, // Example test number
+        calls: [createSnojTestCall(snojContractAddress!, 42n)],
       })
     } catch (error) {
       console.error('Failed to call test:', error)
@@ -41,7 +40,6 @@ export function SnojTestExample({
 export function SnojBatchExecuteExample({ 
   chainId,
   addLog,
-  tokenAddress,
 }: { 
   chainId: number
   addLog?: (message: string | React.ReactNode) => void
@@ -57,13 +55,12 @@ export function SnojBatchExecuteExample({
     try {
       // Example: Create multiple transfer calls
       const calls: Call[] = [
-        createTransferCall(tokenAddress, '0x1234...', 100n),
-        createTransferCall(tokenAddress, '0x5678...', 200n),
-        createTransferCall(tokenAddress, '0x9abc...', 300n),
+        createSnojReceiveCall(snojContractAddress!, 100n),
+        createSnojReceiveCall(snojContractAddress!, 200n),
+        createSnojReceiveCall(snojContractAddress!, 300n),
       ]
 
       await executeSnojOperation.mutateAsync({
-        operation: 'execute',
         calls,
       })
     } catch (error) {

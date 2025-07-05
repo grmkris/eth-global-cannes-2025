@@ -9,16 +9,8 @@ import {
   clearDelegation,
   generateLocalAccount,
   createWalletFromPrivateKey,
-  createMintCall,
-  createMintToSelfCall,
-  createTransferCall,
-  createApproveCall,
-  createSnojTestCall,
-  createSnojExecuteCall,
   type Call,
   type WalletType,
-  type TokenOperation,
-  createSnojReceiveCall,
 } from './eip-7702'
 
 // Store selected chain ID for local accounts
@@ -321,62 +313,6 @@ export function useClearDelegation(customChainId?: number) {
   })
 }
 
-export function useExecuteTokenOperation({
-  addLog,
-  tokenAddress,
-}: {
-  addLog?: (message: string | React.ReactNode) => void
-  tokenAddress: Address
-}) {
-  const executeWithPasskeyMutation = useExecuteWithPasskey({ addLog })
-  
-  return useMutation({
-    mutationKey: ['executeTokenOperation'],
-    mutationFn: async ({ 
-      operation, 
-      amount, 
-      recipient,
-      spender,
-    }: { 
-      operation: TokenOperation
-      amount: bigint
-      recipient?: Address
-      spender?: Address
-    }) => {
-      let call: Call
-      
-      switch (operation) {
-        case 'mint':
-          if (recipient) {
-            call = createMintCall(tokenAddress, recipient, amount)
-            addLog?.(`Minting ${amount} tokens to ${recipient}`)
-          } else {
-            call = createMintToSelfCall(tokenAddress, amount)
-            addLog?.(`Minting ${amount} tokens to self`)
-          }
-          break
-        case 'transfer':
-          if (!recipient) throw new Error('Recipient required for transfer')
-          call = createTransferCall(tokenAddress, recipient, amount)
-          addLog?.(`Transferring ${amount} tokens to ${recipient}`)
-          break
-        case 'approve':
-          if (!spender) throw new Error('Spender required for approve')
-          call = createApproveCall(tokenAddress, spender, amount)
-          addLog?.(`Approving ${spender} to spend ${amount} tokens`)
-          break
-        default:
-          throw new Error('Invalid operation')
-      }
-      
-      return executeWithPasskeyMutation.mutateAsync({ calls: [call] })
-    },
-    onError: (error) => {
-      console.error('Failed to execute token operation:', error)
-    },
-  })
-}
-
 export function useExecuteSnojOperation({
   addLog,
   snojContractAddress,
@@ -388,40 +324,9 @@ export function useExecuteSnojOperation({
   
   return useMutation({
     mutationKey: ['executeSnojOperation'],
-    mutationFn: async ({ 
-      operation,
-      testNumber,
-      amount,
-      calls,
-    }: { 
-      operation: 'test' | 'execute' | 'receive'
-      testNumber?: bigint
-      amount?: bigint
-      calls?: Call[]
-    }) => {
-      let call: Call
-      
-      switch (operation) {
-        case 'test':
-          if (testNumber === undefined) throw new Error('Test number required for test operation')
-          call = createSnojTestCall(snojContractAddress, testNumber)
-          addLog?.(`Calling snoj test function with number: ${testNumber}`)
-          break
-        case 'execute':
-          if (!calls || calls.length === 0) throw new Error('Calls required for execute operation')
-          call = createSnojExecuteCall(snojContractAddress, calls)
-          addLog?.(`Executing ${calls.length} calls through snoj contract`)
-          break
-        case 'receive':
-          if (!amount) throw new Error('Amount required for receive operation')
-          call = createSnojReceiveCall(snojContractAddress, amount)
-          addLog?.(`Receiving ${amount} through snoj contract`)
-          break
-        default:
-          throw new Error('Invalid snoj operation')
-      }
-      
-      return executeWithPasskeyMutation.mutateAsync({ calls: [call] })
+    mutationFn: async (props: { calls: Call[] }) => {
+      if (!props.calls || props.calls.length === 0) throw new Error('Calls required for snoj operation')
+      return executeWithPasskeyMutation.mutateAsync(props)
     },
     onError: (error) => {
       console.error('Failed to execute snoj operation:', error)

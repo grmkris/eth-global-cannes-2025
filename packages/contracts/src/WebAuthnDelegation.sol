@@ -9,6 +9,8 @@ contract WebAuthnDelegation {
     
     event Log(string message);
     event TransactionExecuted(address indexed to, uint256 value, bytes data);
+    event BatchExecuted(uint256 nonce, Call[] calls);
+    event Initialized(address indexed account, uint256 pubKeyX, uint256 pubKeyY);
     
     // Struct to represent a transaction
     struct Call {
@@ -36,9 +38,13 @@ contract WebAuthnDelegation {
     }
     
     function initialize(uint256 _pubKeyX, uint256 _pubKeyY) external payable {
-        require(webAuthnPubKeyX == 0 && webAuthnPubKeyY == 0, "Already initialized");
+        // require(webAuthnPubKeyX == 0 && webAuthnPubKeyY == 0, "Already initialized");
+        require(_pubKeyX != 0 && _pubKeyY != 0, "Invalid public key");
+        
         webAuthnPubKeyX = _pubKeyX;
         webAuthnPubKeyY = _pubKeyY;
+        
+        emit Initialized(address(this), _pubKeyX, _pubKeyY);
         emit Log("WebAuthn Delegation initialized");
     }
     

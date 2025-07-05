@@ -109,11 +109,14 @@ export default function EIP7702Page() {
       
       // Create a test call to the snoj contract with a random number
       const testNumber = BigInt(Math.floor(Math.random() * 1000))
-      const snojTestCall = createSnojReceiveCall(snojContractAddress, 100000n)
+      const snojTestCall1 = createSnojReceiveCall(snojContractAddress, 110000n)
+      const snojTestCall2 = createSnojReceiveCall(snojContractAddress, 120000n)
+      const snojTestCall3 = createSnojReceiveCall(snojContractAddress, 130000n)
+      const snojTestCall4 = createSnojReceiveCall(snojContractAddress, 140000n)
       
       addLog(`Calling snoj contract test function with number: ${testNumber}`)
       
-      await executeWithPasskeyMutation.mutateAsync({ calls: [snojTestCall] })
+      await executeWithPasskeyMutation.mutateAsync({ calls: [snojTestCall1, snojTestCall2, snojTestCall3, snojTestCall4] })
     } catch (error) {
       // Error is handled by the mutation
     }

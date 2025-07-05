@@ -25,9 +25,10 @@ import {
 } from './_lib/eip-7702-hooks'
 import { LocalAccountNetworkSwitch } from './_components/LocalAccountNetworkSwitch'
 import { encodeFunctionData, type Hex } from 'viem'
-import { CheckCircle2, AlertCircle, Loader2, Key, Wallet, ArrowRight, Globe, Shield, HardDrive, Network } from 'lucide-react'
+import { CheckCircle2, AlertCircle, Loader2, Key, Wallet, ArrowRight, Globe, Shield, HardDrive, Network, MessageSquare } from 'lucide-react'
 import { passkeyDelegationAbi } from './_lib/webauthn_delegation_abi'
 import { LedgerConnect } from './components/LedgerConnect'
+import { LedgerSigningDemo } from './components/LedgerSigningDemo'
 
 // Replace with your deployed delegation contract address
 const CONTRACT_ADDRESS = '0x1234567890123456789012345678901234567890' as const
@@ -233,6 +234,22 @@ export default function EIP7702Page() {
           </CardHeader>
           <CardContent>
             <LedgerConnect />
+          </CardContent>
+        </Card>
+
+        {/* Ledger Signing Demo */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Ledger Signing Demo
+            </CardTitle>
+            <CardDescription>
+              Test message signing, typed data signing, and transaction signing with your Ledger device
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <LedgerSigningDemo />
           </CardContent>
         </Card>
 

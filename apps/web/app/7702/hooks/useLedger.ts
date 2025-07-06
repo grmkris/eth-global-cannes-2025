@@ -10,11 +10,8 @@ import {
 } from "../lib/ledgerService";
 import {
   SignerEth,
-  SignerEthBuilder,
 } from "@ledgerhq/device-signer-kit-ethereum";
-import { useMutation } from "@tanstack/react-query";
-import type { Address, Chain } from "viem";
-import { createLedgerAuthorization } from "./ledger-eip-7702";
+import type { TransactionSerializable } from "viem";
 
 export function useLedger() {
   const [isConnected, setIsConnected] = useState(false);
@@ -76,15 +73,12 @@ export function useLedger() {
   }, []);
 
   // Sign transaction with observable
-  const signTransactionWithLedger = useCallback((
-    transaction: any,
-    onStateChange?: (state: any) => void,
-    onError?: (error: any) => void,
-    onComplete?: () => void
+  const signTransaction = useCallback((
+    transaction: TransactionSerializable,
   ) => {
     try {
       setError(null);
-      return signTransactionLedger(transaction, onStateChange, onError, onComplete);
+      return signTransactionLedger(transaction);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to sign transaction";
       setError(errorMessage);
@@ -112,7 +106,7 @@ export function useLedger() {
     accountAddress,
     connect,
     disconnect,
-    signTransaction: signTransactionWithLedger,
+    signTransaction,
     getHardcodedTransaction
   };
 }

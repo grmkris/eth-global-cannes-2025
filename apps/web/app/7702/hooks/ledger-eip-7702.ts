@@ -169,7 +169,7 @@ export async function sendLedgerTransactionWithAuthorization({
     console.log("sendLedgerTransactionWithAuthorizationSigned transaction:", signedTx);
     // Send the raw transaction
     const hash = await publicClient.sendRawTransaction({
-      serializedTransaction: signedTx,
+      serializedTransaction: signedTx
     })
     
     return hash

@@ -189,14 +189,18 @@ export async function signTransactionLedger(
     //   });
     // }
 
-    const signed = sign({
+    const signed = await sign({
       hash: hashedSerializedTx,
       privateKey: generatePrivateKey(),
     })
+    if (!signed.v) throw new Error("Failed to sign transaction: No v value");
     console.log("signTransactionLedger Signed transaction:", signed);
-    return signed;
-
-    throw new Error(`Failed to sign transaction: ${result?.status}`);
+    return serializeTransaction(transaction, {
+      r: numberToHex(BigInt(signed.r)),
+      s: numberToHex(BigInt(signed.s)),
+      v: BigInt(signed.v),
+      yParity: signed.v - 27n === 0n ? 0 : 1,
+    });
   } catch (error) {
     console.error("Failed to sign transaction:", error);
     throw new Error(`Failed to sign transaction: ${error instanceof Error ? error.message : "Unknown error"}`);

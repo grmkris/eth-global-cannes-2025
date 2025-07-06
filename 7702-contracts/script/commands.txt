@@ -16,3 +16,26 @@ forge script \
   --rpc-url $SEPOLIA_RPC_URL \
   --private-key $OWNER_PRIVATE_KEY \
   --broadcast
+
+
+
+forge script \
+  script/WebAuthnDelegation.s.sol:DeployWebAuthnScript \
+  --rpc-url $SEPOLIA_RPC_URL \
+  --fork-url $SEPOLIA_RPC_URL \
+  --private-key $OWNER_PRIVATE_KEY \
+  --broadcast
+
+
+forge verify-contract \
+  --chain-id 11155111 \
+  --watch \
+  0x822ccAad88f3DbE8D9F147F15F4433Ef172fd803 \
+  --etherscan-api-key $ETHERSCAN_API_KEY \
+  --constructor-args $(cast abi-encode \
+    "constructor(address,address,address,address)" \
+    0x0000000000000000000000000000000000000000 \
+    0xC1276a6e95f8aba748071D6F9F7C0E882c974417 \
+    0x55649E01B5Df198D18D95b5cc5051630cfD45564 \
+    0x6538E6bf4B0eBd30A8Ea093027Ac2422ce5d6538) \
+  src/WebAuthnDelegation.sol:WebAuthnDelegation 

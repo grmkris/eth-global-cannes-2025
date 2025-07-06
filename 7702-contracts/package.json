@@ -14,8 +14,10 @@
   "license": "ISC",
   "dependencies": {
     "@noble/curves": "^1.9.2",
+    "@scopelift/stealth-address-sdk": "^1.0.0-beta.2",
     "abitype": "^1.0.8",
     "dotenv": "^17.0.1",
+    "patch-package": "^8.0.0",
     "viem": "~2.31.7"
   },
   "devDependencies": {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: CC0-1.0
-pragma solidity 0.8.23;
+pragma solidity ^0.8.23;
 
 /// @dev Interface for calling the `ERC6538Registry` contract to map accounts to their stealth
 /// meta-address. See [ERC-6538](https://eips.ethereum.org/EIPS/eip-6538) to learn more.

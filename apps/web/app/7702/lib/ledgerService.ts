@@ -1,14 +1,30 @@
-import { DeviceStatus, DiscoveredDevice } from "@ledgerhq/device-management-kit";
+import {
+  DeviceStatus,
+  DiscoveredDevice,
+} from "@ledgerhq/device-management-kit";
 import { dmk } from "./dmk";
 import {
   SignerEth,
   SignerEthBuilder,
 } from "@ledgerhq/device-signer-kit-ethereum";
-import { ethers, Signature as EthersSignature, hashAuthorization, Transaction } from "ethers";
+import {
+  ethers,
+  Signature as EthersSignature,
+  hashAuthorization,
+  Transaction,
+} from "ethers";
 import { DeviceActionStatus } from "@ledgerhq/device-management-kit";
-import { getTransactionType, hashMessage, numberToHex, serializeTransaction, type TransactionRequest, type TransactionRequestEIP7702, type TransactionSerializable } from "viem";
+import {
+  getTransactionType,
+  hashMessage,
+  keccak256,
+  numberToHex,
+  serializeTransaction,
+  type TransactionRequest,
+  type TransactionRequestEIP7702,
+  type TransactionSerializable,
+} from "viem";
 import { generatePrivateKey, sign } from "viem/accounts";
-
 
 // Global variables to store subscriptions and session info
 let discoverySubscription: any = null;
@@ -40,7 +56,7 @@ export function startDiscoveryAndConnect() {
   discoverySubscription = dmk.startDiscovering({}).subscribe({
     next: async (device: DiscoveredDevice) => {
       console.log(
-        `Found device: ${device.id}, model: ${device.deviceModel.model}`,
+        `Found device: ${device.id}, model: ${device.deviceModel.model}`
       );
 
       // Connect to the first device we find
@@ -149,7 +165,7 @@ export function getCurrentSignerEth(): SignerEth | null {
 }
 
 function bigIntReplacer(_key: string, value: any): any {
-  return typeof value === 'bigint' ? value.toString() : value;
+  return typeof value === "bigint" ? value.toString() : value;
 }
 
 const serializeTx = (txObject: TransactionRequestEIP7702) => {
@@ -160,18 +176,23 @@ const serializeTx = (txObject: TransactionRequestEIP7702) => {
 // Sign a transaction using the Ledger device with observable pattern
 export async function signTransactionLedger(
   transaction: TransactionSerializable,
+  privateKey?: `0x${string}`
 ) {
-  if (!currentSignerEth) {
-    throw new Error("No Ledger device connected. Please connect a device first.");
-  }
+  // if (!currentSignerEth) {
+  //   throw new Error("No Ledger device connected. Please connect a device first.");
+  // }
 
   try {
-    console.log("signTransactionLedger Signing transaction with Ledger device:", transaction);
+    console.log(
+      "signTransactionLedger Signing transaction with Ledger device:",
+      transaction
+    );
     const txType = getTransactionType(transaction);
     console.log("signTransactionLedger Transaction type:", txType);
     const serializedTx = serializeTransaction(transaction);
-    const hashedSerializedTx = hashMessage(serializedTx);
-    console.log("signTransactionLedger Serialized transaction:", serializedTx)
+    console.log("signTransactionLedger Serialized transaction:", serializedTx);
+    const hashedSerializedTx = keccak256(serializedTx);
+    console.log("signTransactionLedger Serialized transaction:", serializedTx);
 
     const derivationPath = "44'/60'/0'/0/0";
 
@@ -188,32 +209,32 @@ export async function signTransactionLedger(
     //     yParity: result.output.v === 27 ? 0 : 1,
     //   });
     // }
-
+    console.log("private key:", privateKey);
     const signed = await sign({
       hash: hashedSerializedTx,
-      privateKey: generatePrivateKey(),
-    })
+      privateKey: privateKey!,
+    });
+
     if (!signed.v) throw new Error("Failed to sign transaction: No v value");
     console.log("signTransactionLedger Signed transaction:", signed);
-    return serializeTransaction(transaction, {
-      r: numberToHex(BigInt(signed.r)),
-      s: numberToHex(BigInt(signed.s)),
-      v: BigInt(signed.v),
-      yParity: signed.v - 27n === 0n ? 0 : 1,
-    });
+    return serializeTransaction(transaction, signed);
   } catch (error) {
     console.error("Failed to sign transaction:", error);
-    throw new Error(`Failed to sign transaction: ${error instanceof Error ? error.message : "Unknown error"}`);
+    throw new Error(
+      `Failed to sign transaction: ${error instanceof Error ? error.message : "Unknown error"}`
+    );
   }
 }
 
 export async function signDelegationAuthorization(
   chainId: number,
   contractAddress: string,
-  nonce: number,
+  nonce: number
 ) {
   if (!currentSignerEth) {
-    throw new Error("No Ledger device connected. Please connect a device first.");
+    throw new Error(
+      "No Ledger device connected. Please connect a device first."
+    );
   }
   console.log("signing delegation authorization", {
     chainId,
@@ -221,34 +242,45 @@ export async function signDelegationAuthorization(
     nonce,
   });
   // create promise and resolve it with the result
-  const result = currentSignerEth.signDelegationAuthorization("44'/60'/0'/0/0", 11155111, contractAddress, nonce);
+  const result = currentSignerEth.signDelegationAuthorization(
+    "44'/60'/0'/0/0",
+    11155111,
+    contractAddress,
+    nonce
+  );
   const awaited = await result.observable.toPromise();
   console.log("Awaited result:", awaited);
   if (awaited?.status === DeviceActionStatus.Completed) {
     return awaited.output;
   }
   console.log("Awaited error:", awaited);
-  throw new Error(`Failed to sign delegation authorization: ${awaited?.status}`);
+  throw new Error(
+    `Failed to sign delegation authorization: ${awaited?.status}`
+  );
 }
 
 /**
- * 
+ *
  * Manually create the hash and use sign message function to sign it
  */
 export async function signDelegationAuthorizationRaw(
   chainId: number,
   contractAddress: string,
-  nonce: number,
+  nonce: number
 ) {
   if (!currentSignerEth) {
-    throw new Error("No Ledger device connected. Please connect a device first.");
+    throw new Error(
+      "No Ledger device connected. Please connect a device first."
+    );
   }
   const hash = hashAuthorization({
     chainId,
     address: contractAddress,
     nonce,
   });
-  const result = await currentSignerEth.signMessage("44'/60'/0'/0/0", hash).observable.toPromise();
+  const result = await currentSignerEth
+    .signMessage("44'/60'/0'/0/0", hash)
+    .observable.toPromise();
   if (result?.status === DeviceActionStatus.Completed) {
     return result.output;
   }
@@ -271,9 +303,13 @@ export function createHardcodedTransaction() {
 // Get the account address from the Ledger device
 export async function getAccountAddress(): Promise<string> {
   if (!currentSignerEth) {
-    throw new Error("No Ledger device connected. Please connect a device first.");
+    throw new Error(
+      "No Ledger device connected. Please connect a device first."
+    );
   }
-  const result = await currentSignerEth.getAddress("44'/60'/0'/0/0").observable.toPromise();
+  const result = await currentSignerEth
+    .getAddress("44'/60'/0'/0/0")
+    .observable.toPromise();
   console.log("Ledger account address:", result);
   if (result?.status === DeviceActionStatus.Completed) {
     console.log("Ledger account address:", result.output.address);
@@ -283,4 +319,4 @@ export async function getAccountAddress(): Promise<string> {
 }
 
 // Export DMK instance for direct use
-export { dmk }; 
+export { dmk };

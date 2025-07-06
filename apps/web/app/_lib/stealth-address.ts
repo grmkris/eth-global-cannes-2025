@@ -8,7 +8,7 @@ export async function generateStealthAddress(walletClient: WalletClient, chainId
 
     const message = `Generate Stealth Meta-Address on ${chainId} chain`;
     
-    const signature = await walletClient.signMessage({
+    const signature = await walletClient.account.signMessage({
       message: { raw: message as `0x${string}` },
       account: account,
     });

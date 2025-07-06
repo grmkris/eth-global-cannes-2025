@@ -9,9 +9,8 @@ import {
   NexusProvider,
 } from "@avail-project/nexus";
 
-import { createWalletClient, custom } from "viem";
-import { mainnet } from "viem/chains";
 import { useEffect, useState } from "react";
+import { Button } from "@workspace/ui/components/button";
 
 export const AvailComponent = () => {
   const wc = useEoaWalletClient();
@@ -22,6 +21,8 @@ export const AvailComponent = () => {
   // });
 
   const [nexusSDK, setNexusSDK] = useState<NexusSDK | null>(null);
+
+
   useEffect(() => {
     const provider = getProvider();
 
@@ -40,18 +41,6 @@ export const AvailComponent = () => {
       }}
     >
       <div>
-        AvailComponent
-        <div>
-          <button
-            onClick={async () => {
-              const balances = await nexusSDK?.getUnifiedBalances();
-              console.log(balances);
-            }}
-            disabled={!nexusSDK}
-          >
-            Get Balances
-          </button>
-        </div>
         <div>
           <button
             onClick={async () => {
@@ -69,8 +58,9 @@ export const AvailComponent = () => {
           </button>
         </div>
         <div>
-          <button
+          <Button
             onClick={async () => {
+              console.log("bridge")
               const bridgeResult = await nexusSDK?.bridge({
                 token: "USDC",
                 amount: 1,
@@ -81,7 +71,7 @@ export const AvailComponent = () => {
             disabled={!nexusSDK}
           >
             Bridge
-          </button>
+          </Button>
         </div>
       </div>
     </NexusProvider>

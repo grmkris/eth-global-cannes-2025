@@ -31,7 +31,6 @@ import { type Hex, encodeFunctionData, parseEther, formatEther } from "viem";
 import { passkeyDelegationAbi } from "../../_lib/abi/webauthn_delegation_abi";
 import { networkConfigs } from "@/app/_lib/network-config";
 import { useLedger } from "../hooks/useLedger";
-import { AvailComponent } from "@/app/_lib/avail-comp";
 
 export function LedgerFullDemo() {
   const {
@@ -219,8 +218,6 @@ export function LedgerFullDemo() {
             <AlertDescription>{error || processError}</AlertDescription>
           </Alert>
         )}
-
-        <AvailComponent />
 
         {/* Step 1: Connect */}
         {step === "connect" && (

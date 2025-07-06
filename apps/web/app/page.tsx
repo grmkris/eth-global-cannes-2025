@@ -54,6 +54,7 @@ import { sepolia } from 'viem/chains'
 import { LedgerAuthDemo } from './7702/components/LedgerAuthDemo'
 import { LedgerFullDemo } from './7702/components/LedgerFullDemo'
 import { useStealthAddress } from './_lib/stealh-address-hooks'
+import { AvailComponent } from './_lib/avail-comp'
 
 interface Recipient {
 	id: string
@@ -748,6 +749,16 @@ export default function Page() {
 								</div>
 							)}
 						</ScrollArea>
+					</CardContent>
+				</Card>
+
+
+				<Card>
+					<CardHeader>
+						<CardTitle>Avail bridge</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<AvailComponent />
 					</CardContent>
 				</Card>
 

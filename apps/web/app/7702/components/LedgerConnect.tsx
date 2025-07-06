@@ -5,7 +5,10 @@ import { useLedger } from '../hooks/useLedger'
 import { Button } from '@workspace/ui/components/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@workspace/ui/components/card'
 import { Alert, AlertDescription } from '@workspace/ui/components/alert'
-import { Loader2, Usb, CheckCircle, XCircle } from 'lucide-react'
+import { Loader2, Usb, CheckCircle, XCircle } from 'lucide-react' 
+import { networkConfigs } from '../_lib/network-config'
+import { sepolia } from 'viem/chains'
+import { useMutation } from '@tanstack/react-query'
 
 export function LedgerConnect() {
   const { isConnected, isDiscovering, error, connect, disconnect } = useLedger()

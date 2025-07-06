@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useWalletClient, useChainId, useChains, useBalance } from 'wagmi'
+import { useWalletClient, useChainId, useChains, useBalance, useReadContract } from 'wagmi'
 import { type Address, type Hex, type WalletClient } from 'viem'
 import { useState, useEffect } from 'react'
 import {
@@ -11,16 +11,18 @@ import {
   createWalletFromPrivateKey,
   type Call,
   type WalletType,
-} from './eip-7702'
+} from './ithaca-actions'
+import { erc20Abi } from './erc20-abi'
+import { networkConfigs } from '../network-config'
 
 // Store selected chain ID for local accounts
 function getSelectedChainId(): number | null {
-  const stored = localStorage.getItem('eip7702_selected_chain_id')
+  const stored = localStorage.getItem('ithaca_selected_chain_id')
   return stored ? parseInt(stored) : null
 }
 
 function setSelectedChainId(chainId: number) {
-  localStorage.setItem('eip7702_selected_chain_id', chainId.toString())
+  localStorage.setItem('ithaca_selected_chain_id', chainId.toString())
 }
 
 // Hook to manage selected chain ID for local accounts
@@ -51,7 +53,7 @@ export function useLocalAccountChainId() {
 
 // Helper functions for local storage
 function getStoredLocalAccount(chainId: number): { address: Address; privateKey: Hex } | null {
-  const key = `eip7702_local_account_${chainId}`
+  const key = `ithaca_local_account_${chainId}`
   const stored = localStorage.getItem(key)
   if (!stored) return null
   
@@ -63,12 +65,12 @@ function getStoredLocalAccount(chainId: number): { address: Address; privateKey:
 }
 
 function storeLocalAccount(chainId: number, address: Address, privateKey: Hex) {
-  const key = `eip7702_local_account_${chainId}`
+  const key = `ithaca_local_account_${chainId}`
   localStorage.setItem(key, JSON.stringify({ address, privateKey }))
 }
 
 function clearLocalAccount(chainId: number) {
-  const key = `eip7702_local_account_${chainId}`
+  const key = `ithaca_local_account_${chainId}`
   localStorage.removeItem(key)
 }
 
@@ -99,7 +101,7 @@ export function useGenerateLocalAccount({
   const chain = chains.find((c) => c.id === chainId)
   
   return useMutation({
-    mutationKey: ['generateLocalAccount'],
+    mutationKey: ['generateLocalAccountIthaca'],
     mutationFn: async () => {
       if (!chain) {
         throw new Error('No chain found')
@@ -121,7 +123,7 @@ export function useGenerateLocalAccount({
       addLog?.(`Private key stored in localStorage for chain ${chain.id}`)
       
       // Invalidate to refetch local account info
-      await queryClient.invalidateQueries({ queryKey: ['storedLocalAccount'] })
+      await queryClient.invalidateQueries({ queryKey: ['storedLocalAccountIthaca'] })
       
       return { walletClient }
     },
@@ -137,7 +139,7 @@ export function useStoredLocalAccount(customChainId?: number) {
   const chain = chains.find((c) => c.id === chainId)
   
   return useQuery({
-    queryKey: ['storedLocalAccount', chainId],
+    queryKey: ['storedLocalAccountIthaca', chainId],
     queryFn: () => {
       const stored = getStoredLocalAccount(chainId || 0)
       if (!stored || !chain) return null
@@ -180,7 +182,7 @@ export function useCreatePasskeyDelegation({
   const chain = chains.find((c) => c.id === chainId)
   
   return useMutation({
-    mutationKey: ['createPasskeyDelegationMulti'],
+    mutationKey: ['createPasskeyDelegationIthaca'],
     mutationFn: async ({ 
       walletType, 
       privateKey 
@@ -232,7 +234,7 @@ export function useCreatePasskeyDelegation({
       })
       
       // Invalidate queries to refetch
-      await queryClient.invalidateQueries({ queryKey: ['passkeyDelegationMulti'] })
+      await queryClient.invalidateQueries({ queryKey: ['passkeyDelegationIthaca'] })
       
       return result
     },
@@ -248,7 +250,7 @@ export function useExecuteWithPasskey({
   addLog?: (message: string | React.ReactNode) => void
 }) {
   return useMutation({
-    mutationKey: ['executeWithPasskeyMulti'],
+    mutationKey: ['executeWithPasskeyIthaca'],
     mutationFn: async ({ calls, walletClient }: { calls: Call[]; walletClient: WalletClient }) => {
       return executeWithPasskey({
         walletClient,
@@ -264,7 +266,7 @@ export function useExecuteWithPasskey({
 
 export function usePasskeyDelegation() {
   return useQuery({
-    queryKey: ['passkeyDelegationMulti'],
+    queryKey: ['passkeyDelegationIthaca'],
     queryFn: () => getDelegationStatus(),
     staleTime: Infinity,
   })
@@ -306,16 +308,16 @@ export function useClearDelegation(customChainId?: number) {
   const chainId = customChainId || wagmiChainId
   
   return useMutation({
-    mutationKey: ['clearDelegationMulti'],
+    mutationKey: ['clearDelegationIthaca'],
     mutationFn: async ({ clearLocalStorage = false }: { clearLocalStorage?: boolean } = {}) => {
       clearDelegation()
       
       if (clearLocalStorage) {
         clearLocalAccount(chainId)
-        await queryClient.invalidateQueries({ queryKey: ['storedLocalAccount'] })
+        await queryClient.invalidateQueries({ queryKey: ['storedLocalAccountIthaca'] })
       }
       
-      await queryClient.invalidateQueries({ queryKey: ['passkeyDelegationMulti'] })
+      await queryClient.invalidateQueries({ queryKey: ['passkeyDelegationIthaca'] })
     },
     onError: (error) => {
       console.error('Failed to clear delegation:', error)
@@ -323,24 +325,46 @@ export function useClearDelegation(customChainId?: number) {
   })
 }
 
-export function useExecuteSnojOperation({
+export function useExecuteIthacaOperation({
   addLog,
-  snojContractAddress,
+  erc20ContractAddress,
 }: {
   addLog?: (message: string | React.ReactNode) => void
-  snojContractAddress: Address
+  erc20ContractAddress: Address
 }) {
   const executeWithPasskeyMutation = useExecuteWithPasskey({ addLog })
   
   return useMutation({
-    mutationKey: ['executeSnojOperation'],
+    mutationKey: ['executeIthacaOperation'],
     mutationFn: async (props: { calls: Call[]; walletClient: WalletClient }) => {
-      if (!props.calls || props.calls.length  === 0) throw new Error('Calls required for snoj operation')
-      if (!props.walletClient) throw new Error('Wallet client required for snoj operation')
+      if (!props.calls || props.calls.length  === 0) throw new Error('Calls required for Ithaca operation')
+      if (!props.walletClient) throw new Error('Wallet client required for Ithaca operation')
       return executeWithPasskeyMutation.mutateAsync(props)
     },
     onError: (error) => {
-      console.error('Failed to execute snoj operation:', error)
+      console.error('Failed to execute Ithaca operation:', error)
     },
+  })
+}
+
+// Hook to check ERC20 token balance
+export function useIthacaTokenBalance({
+  address,
+  chainId,
+}: {
+  address?: Address
+  chainId?: number
+}) {
+  const erc20Address = networkConfigs[chainId || 0]?.experimentERC20Address
+  
+  return useReadContract({
+    address: erc20Address,
+    abi: erc20Abi,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+    chainId,
+    query: {
+      enabled: !!address && !!erc20Address,
+    }
   })
 }

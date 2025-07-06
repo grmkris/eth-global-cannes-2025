@@ -27,8 +27,8 @@ importers:
   apps/web:
     dependencies:
       '@avail-project/nexus':
-        specifier: ^0.1.0
-        version: 0.1.0(@types/react-dom@19.0.4(@types/react@19.0.10))(@types/react@19.0.10)(bufferutil@4.0.9)(google-protobuf@3.21.4)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.7.3)(utf-8-validate@5.0.10)(vitest@3.0.9(@types/debug@4.1.12)(@types/node@20.17.19)(jiti@2.4.2)(lightningcss@1.29.1))(zod@3.24.2)
+        specifier: 0.1.1-dev.4
+        version: 0.1.1-dev.4(@types/react-dom@19.0.4(@types/react@19.0.10))(@types/react@19.0.10)(bufferutil@4.0.9)(google-protobuf@3.21.4)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.7.3)(utf-8-validate@5.0.10)(vitest@3.0.9(@types/debug@4.1.12)(@types/node@20.17.19)(jiti@2.4.2)(lightningcss@1.29.1))(zod@3.24.2)
       '@ledgerhq/device-management-kit':
         specifier: ^0.7.0
         version: 0.7.0(bufferutil@4.0.9)(rxjs@7.8.2)(utf-8-validate@5.0.10)
@@ -349,8 +349,8 @@ packages:
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
     engines: {node: '>=10'}
 
-  '@arcana/ca-common@0.0.20':
-    resolution: {integrity: sha512-ql9ukbp7EnijGCjC24acLDGoiZm1aJy429VV3fXQq7Ld+v6+u8oAiZ5bule7rIJUua+QzYAcGB3u4j1rDb19XQ==}
+  '@arcana/ca-common@0.0.22':
+    resolution: {integrity: sha512-B0G+XzHN7IqGW1dLgEvsKMvhnFlYQ4VGhEu24k7CFqg9RHxvRVrY4NibQuut3wxI5J/10eKncrWnC1enPbKCpQ==}
     peerDependencies:
       '@cosmjs/proto-signing': ^0.33.0
       '@cosmjs/stargate': ^0.33.0
@@ -361,11 +361,11 @@ packages:
       msgpackr: ^1.11.2
       viem: ^2.23.13
 
-  '@arcana/ca-sdk@1.0.2':
-    resolution: {integrity: sha512-N+WYPmCyoH1D8TF7AF5QqFl+A+CVdnMaV0Vntromyr6AAs4VX2L+x1/jJ6JmEyh+7/tT7k3kz5x3CIRhTg94AA==}
+  '@arcana/ca-sdk@1.0.3-beta.8':
+    resolution: {integrity: sha512-4PbnuBKt8NbAhAJv2tvL32TBpb+HdwwPpNy16Bbte27oZGr2xOSj8ghxK8WwwG9xsPl6FlaT0D0dKfbIu4a18A==}
 
-  '@avail-project/nexus@0.1.0':
-    resolution: {integrity: sha512-Ov0aTZMgEmv+TY4krZCl+uTHwLZUe8e3MYY6bqK/P9SpqvAeVWoQYF9UD+bahyWGKb5WZCbV1ipTSIBn+HIRAA==}
+  '@avail-project/nexus@0.1.1-dev.4':
+    resolution: {integrity: sha512-uaurHAqwXLEo7VKRe5h/Z3Im9ZRQpW2wTUMTlbOV5fVQBmdgNTH1nWnCmcI3ewufV1KQhEaKzr4bEMVyPibTHw==}
     peerDependencies:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
@@ -6140,7 +6140,7 @@ snapshots:
 
   '@alloc/quick-lru@5.2.0': {}
 
-  '@arcana/ca-common@0.0.20(@cosmjs/proto-signing@0.33.1)(@cosmjs/stargate@0.33.1(bufferutil@4.0.9)(utf-8-validate@5.0.10))(axios@1.8.2)(decimal.js@10.5.0)(fuels@0.100.6(vitest@3.0.9(@types/debug@4.1.12)(@types/node@20.17.19)(jiti@2.4.2)(lightningcss@1.29.1)))(google-protobuf@3.21.4)(long@5.3.2)(msgpackr@1.11.4)(viem@2.31.7(bufferutil@4.0.9)(typescript@5.7.3)(utf-8-validate@5.0.10)(zod@3.24.2))':
+  '@arcana/ca-common@0.0.22(@cosmjs/proto-signing@0.33.1)(@cosmjs/stargate@0.33.1(bufferutil@4.0.9)(utf-8-validate@5.0.10))(axios@1.8.2)(decimal.js@10.5.0)(fuels@0.100.6(vitest@3.0.9(@types/debug@4.1.12)(@types/node@20.17.19)(jiti@2.4.2)(lightningcss@1.29.1)))(google-protobuf@3.21.4)(long@5.3.2)(msgpackr@1.11.4)(viem@2.31.7(bufferutil@4.0.9)(typescript@5.7.3)(utf-8-validate@5.0.10)(zod@3.24.2))':
     dependencies:
       '@bufbuild/protobuf': 2.6.0
       '@cosmjs/proto-signing': 0.33.1
@@ -6158,9 +6158,9 @@ snapshots:
     transitivePeerDependencies:
       - google-protobuf
 
-  '@arcana/ca-sdk@1.0.2(bufferutil@4.0.9)(google-protobuf@3.21.4)(typescript@5.7.3)(utf-8-validate@5.0.10)(vitest@3.0.9(@types/debug@4.1.12)(@types/node@20.17.19)(jiti@2.4.2)(lightningcss@1.29.1))(zod@3.24.2)':
+  '@arcana/ca-sdk@1.0.3-beta.8(bufferutil@4.0.9)(google-protobuf@3.21.4)(typescript@5.7.3)(utf-8-validate@5.0.10)(vitest@3.0.9(@types/debug@4.1.12)(@types/node@20.17.19)(jiti@2.4.2)(lightningcss@1.29.1))(zod@3.24.2)':
     dependencies:
-      '@arcana/ca-common': 0.0.20(@cosmjs/proto-signing@0.33.1)(@cosmjs/stargate@0.33.1(bufferutil@4.0.9)(utf-8-validate@5.0.10))(axios@1.8.2)(decimal.js@10.5.0)(fuels@0.100.6(vitest@3.0.9(@types/debug@4.1.12)(@types/node@20.17.19)(jiti@2.4.2)(lightningcss@1.29.1)))(google-protobuf@3.21.4)(long@5.3.2)(msgpackr@1.11.4)(viem@2.31.7(bufferutil@4.0.9)(typescript@5.7.3)(utf-8-validate@5.0.10)(zod@3.24.2))
+      '@arcana/ca-common': 0.0.22(@cosmjs/proto-signing@0.33.1)(@cosmjs/stargate@0.33.1(bufferutil@4.0.9)(utf-8-validate@5.0.10))(axios@1.8.2)(decimal.js@10.5.0)(fuels@0.100.6(vitest@3.0.9(@types/debug@4.1.12)(@types/node@20.17.19)(jiti@2.4.2)(lightningcss@1.29.1)))(google-protobuf@3.21.4)(long@5.3.2)(msgpackr@1.11.4)(viem@2.31.7(bufferutil@4.0.9)(typescript@5.7.3)(utf-8-validate@5.0.10)(zod@3.24.2))
       '@cosmjs/proto-signing': 0.33.1
       '@cosmjs/stargate': 0.33.1(bufferutil@4.0.9)(utf-8-validate@5.0.10)
       '@metamask/safe-event-emitter': 3.1.2
@@ -6183,9 +6183,9 @@ snapshots:
       - vitest
       - zod
 
-  '@avail-project/nexus@0.1.0(@types/react-dom@19.0.4(@types/react@19.0.10))(@types/react@19.0.10)(bufferutil@4.0.9)(google-protobuf@3.21.4)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.7.3)(utf-8-validate@5.0.10)(vitest@3.0.9(@types/debug@4.1.12)(@types/node@20.17.19)(jiti@2.4.2)(lightningcss@1.29.1))(zod@3.24.2)':
+  '@avail-project/nexus@0.1.1-dev.4(@types/react-dom@19.0.4(@types/react@19.0.10))(@types/react@19.0.10)(bufferutil@4.0.9)(google-protobuf@3.21.4)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.7.3)(utf-8-validate@5.0.10)(vitest@3.0.9(@types/debug@4.1.12)(@types/node@20.17.19)(jiti@2.4.2)(lightningcss@1.29.1))(zod@3.24.2)':
     dependencies:
-      '@arcana/ca-sdk': 1.0.2(bufferutil@4.0.9)(google-protobuf@3.21.4)(typescript@5.7.3)(utf-8-validate@5.0.10)(vitest@3.0.9(@types/debug@4.1.12)(@types/node@20.17.19)(jiti@2.4.2)(lightningcss@1.29.1))(zod@3.24.2)
+      '@arcana/ca-sdk': 1.0.3-beta.8(bufferutil@4.0.9)(google-protobuf@3.21.4)(typescript@5.7.3)(utf-8-validate@5.0.10)(vitest@3.0.9(@types/debug@4.1.12)(@types/node@20.17.19)(jiti@2.4.2)(lightningcss@1.29.1))(zod@3.24.2)
       '@radix-ui/react-progress': 1.1.7(@types/react-dom@19.0.4(@types/react@19.0.10))(@types/react@19.0.10)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       motion: 12.23.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       viem: 2.31.7(bufferutil@4.0.9)(typescript@5.7.3)(utf-8-validate@5.0.10)(zod@3.24.2)
@@ -10373,7 +10373,7 @@ snapshots:
     dependencies:
       cipher-base: 1.0.6
       inherits: 2.0.4
-      ripemd160: 2.0.1
+      ripemd160: 2.0.2
       sha.js: 2.4.12
 
   create-hash@1.2.0:

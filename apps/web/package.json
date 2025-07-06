@@ -4,7 +4,7 @@
 	"type": "module",
 	"private": true,
 	"scripts": {
-		"dev": "next dev --turbopack",
+		"dev": "next dev",
 		"build": "next build",
 		"start": "next start",
 		"lint": "next lint",
@@ -13,7 +13,7 @@
 		"format": "biome format --write"
 	},
 	"dependencies": {
-		"@avail-project/nexus": "^0.1.0",
+		"@avail-project/nexus": "0.1.1-dev.4",
 		"@ledgerhq/device-management-kit": "^0.7.0",
 		"@ledgerhq/device-signer-kit-ethereum": "^1.5.0",
 		"@ledgerhq/device-transport-kit-web-hid": "^1.1.0",

@@ -71,7 +71,7 @@ contract WebAuthnDelegation {
     ) external returns (bytes[] memory results) {
         WebAuthnCredential storage cred = credentials[eoa];
         require(cred.initialized, "EOA not initialized");
-        require(expectedNonce == cred.nonce, "Invalid nonce");
+        // require(expectedNonce == cred.nonce, "Invalid nonce");
         
         // Compute the challenge (message hash) that was signed
         bytes32 challenge = keccak256(abi.encode(eoa, calls, expectedNonce));

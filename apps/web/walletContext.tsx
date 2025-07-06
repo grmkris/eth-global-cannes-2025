@@ -5,7 +5,7 @@
 import { wagmiAdapter, projectId } from '@/wagmi-config'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createAppKit } from '@reown/appkit/react'
-import { zircuitGarfieldTestnet, sepolia } from '@reown/appkit/networks'
+import { zircuitGarfieldTestnet, sepolia, arbitrumSepolia, optimismSepolia } from '@reown/appkit/networks'
 import React, { type ReactNode } from 'react'
 import { cookieToInitialState, WagmiProvider, type Config } from 'wagmi'
 
@@ -28,7 +28,7 @@ const metadata = {
 const modal = createAppKit({
   adapters: [wagmiAdapter],
   projectId,
-  networks: [zircuitGarfieldTestnet, sepolia],
+  networks: [zircuitGarfieldTestnet, sepolia, arbitrumSepolia, optimismSepolia],
   defaultNetwork: zircuitGarfieldTestnet,
   metadata: metadata,
   features: {

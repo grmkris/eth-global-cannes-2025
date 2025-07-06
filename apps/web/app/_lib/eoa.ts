@@ -10,6 +10,7 @@ const CHAIN_ID_TO_CHAIN = {
 export const getOrCreateEoa = (chain: Chain) : WalletClient => {
   // react from local storage or create new one
   const eoa = localStorage.getItem("eoa");
+  console.log('eoa', eoa)
   if (eoa) {
     return createWalletClient({
       transport: http(),
@@ -21,7 +22,9 @@ export const getOrCreateEoa = (chain: Chain) : WalletClient => {
   const walletClient = createWalletClient({
     transport: http(),
     account: privateKeyToAccount(privateKey as `0x${string}`),
+    chain: chain,
   });
+  console.log('walletClient', walletClient)
   localStorage.setItem("eoa", privateKey);
   return walletClient;
 }

@@ -20,14 +20,31 @@ export const networkConfigs: Record<number, NetworkConfig> = {
     experimentDelegationAddress: '0x0000000000000000000000000000000000000000',
   },
   // Ethereum Sepolia
-  11155111: {
-    webAuthnDelegationAddress: '0xd7A27Db1B8c44816E9C7E3BC64129b019427A355',
+  11155111: { 
+    webAuthnDelegationAddress: '0x3Ab3095aAAf58d21B8d23E807c49A3420eD5CdB4',
     simpleMintableTokenAddress: undefined, // Add when deployed
     fallbackP256VerifierAddress: "0x9F66232B2d3A853b9D0a1eF603635Ca9bCc3C9Fb", // Add when deployed
     snojContractAddress: '0x40e03c561eCC97aA2A44C2A1453fFBF4305CccC7',
     experimentERC20Address: '0x1d8723C15f6c3A7d8A00B3a382fcf77f3df7EA7d',
     experimentDelegationAddress: '0xe5F96d72bB66010c6eb7655C342F00ced4e979B8', // Authorized origin set to: 0x5C6C1227CC271c4450cA3e80d7249EcE4506d19c
-
+  },
+  // arb sepolia
+  421614: {
+    webAuthnDelegationAddress: '0xE380598084De1e195971BED5004F3459D99253cf',
+    simpleMintableTokenAddress: undefined, // Add when deployed
+    fallbackP256VerifierAddress: "0x9F66232B2d3A853b9D0a1eF603635Ca9bCc3C9Fb", // Add when deployed
+    snojContractAddress: '0x40e03c561eCC97aA2A44C2A1453fFBF4305CccC7',
+    experimentERC20Address: '0x1d8723C15f6c3A7d8A00B3a382fcf77f3df7EA7d',
+    experimentDelegationAddress: '0xe5F96d72bB66010c6eb7655C342F00ced4e979B8', // Authorized origin set to: 0x5C6C1227CC271c4450cA3e80d7249EcE4506d19c
+  },
+  // op sepolia
+  11155420: {
+    webAuthnDelegationAddress: '0xAC81d3F716F27Bec64384000a80A0106e989707A',
+    simpleMintableTokenAddress: undefined, // Add when deployed
+    fallbackP256VerifierAddress: "0x9F66232B2d3A853b9D0a1eF603635Ca9bCc3C9Fb", // Add when deployed
+    snojContractAddress: '0x40e03c561eCC97aA2A44C2A1453fFBF4305CccC7',
+    experimentERC20Address: '0x1d8723C15f6c3A7d8A00B3a382fcf77f3df7EA7d',
+    experimentDelegationAddress: '0xe5F96d72bB66010c6eb7655C342F00ced4e979B8', // Authorized origin set to: 0x5C6C1227CC271c4450cA3e80d7249EcE4506d19c
   },
 }
 

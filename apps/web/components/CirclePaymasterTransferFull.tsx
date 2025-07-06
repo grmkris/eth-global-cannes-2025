@@ -1,38 +1,30 @@
 "use client"
 
 import { useState } from "react";
-import { useAccount, useWalletClient, usePublicClient } from "wagmi";
-import { createBundlerClient, toSimple7702SmartAccount } from "viem/account-abstraction";
-import { createWalletClient, encodePacked, hexToBigInt, type Address } from "viem";
-import { erc20Abi } from "viem";
-import { arbitrumSepolia, sepolia } from "viem/chains";
-import { signPermit } from "../lib/permit.js";
+import { createWalletClient, type Address } from "viem";
+import { sepolia } from "viem/chains";
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card";
 import { Alert, AlertDescription } from "@workspace/ui/components/alert";
-import { createPublicClient, http, getContract } from "viem";
+import { createPublicClient, http } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { info } from "console";
 import { useCircle7702Transfer, useUSDCBalance } from "@/app/_lib/circle-hooks.js";
+import { useActiveChain } from "@/app/_lib/eoa-hooks";
 
-interface CirclePaymasterTransferProps {
-  recipientAddress: string;
-}
 
-export function CirclePaymasterTransferFull({
-  recipientAddress,
-}: CirclePaymasterTransferProps) {
+
+export function   CirclePaymasterTransferFull() {
   const [transferAmount, setTransferAmount] = useState("10000");
 
-  const client = createPublicClient({ chain: sepolia, transport: http() });
   const owner = privateKeyToAccount(generatePrivateKey());
+  const activeChain = useActiveChain();
   const walletClient = createWalletClient({
-    chain: sepolia,
+    chain: activeChain.data ?? sepolia,
     transport: http(),
     account: owner,
   });
-  const publicClient = createPublicClient({ chain: sepolia, transport: http() });
+  const publicClient = createPublicClient({ chain: activeChain.data ?? sepolia, transport: http() });
   const circle7702Transfer = useCircle7702Transfer();
   const circleBalance = useUSDCBalance({ walletClient: walletClient, publicClient: publicClient });
   return (

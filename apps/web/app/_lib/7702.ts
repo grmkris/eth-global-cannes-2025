@@ -30,10 +30,13 @@ const STORAGE_KEYS = {
   PUBLIC_KEY: 'eip7702_public_key',
 } as const
 
+export type WalletType = 'metamask' | 'local' | 'cold'
+
 // Helper functions for WebAuthn data persistence
 function storeWebAuthnData(data: {
   credential: any
   publicKey: { x: string; y: string }
+  walletType?: WalletType
 }) {
   try {
     // Store credential with necessary data only (can't store functions)
@@ -44,6 +47,9 @@ function storeWebAuthnData(data: {
     }
     localStorage.setItem(STORAGE_KEYS.WEBAUTHN_CREDENTIAL, JSON.stringify(credentialData))
     localStorage.setItem(STORAGE_KEYS.PUBLIC_KEY, JSON.stringify(data.publicKey))
+    if (data.walletType) {
+      localStorage.setItem(STORAGE_KEYS.WALLET_TYPE, data.walletType)
+    }
   } catch (error) {
     console.error('Failed to store WebAuthn data:', error)
   }
@@ -125,7 +131,8 @@ export function createSnojReceiveCall(contractAddress: Address, amount: bigint):
 async function authorize({
   walletClient,
   publicKey,
-}: { walletClient: WalletClient; publicKey: PublicKey }) {
+  addLog,
+}: { walletClient: WalletClient; publicKey: PublicKey; addLog?: (message: string | React.ReactNode) => void    }) {
   const nonce = BigInt(0) // initial nonce will always be 0
   const expiry = BigInt(0) // no expiry
 
@@ -137,13 +144,15 @@ async function authorize({
     ),
   )
 
+  addLog?.('Authorizing with passkey...')
+
   // Sign the authorize digest and parse signature to object format required by
   // the contract.
   if (!walletClient.account) {
     throw new Error('No account found in wallet client')
   }
   const signature = parseSignature(await walletClient.signMessage({ message: digest, account: walletClient.account }))
-
+  addLog?.('Signature: ' + signature)
   // Sign an EIP-7702 authorization to inject the ExperimentDelegation contract
   // onto the EOA.
   const authorization = await walletClient.signAuthorization({
@@ -151,17 +160,17 @@ async function authorize({
     contractAddress: networkConfigs[walletClient.chain?.id ?? 0]?.webAuthnDelegationAddress ?? '0x0000000000000000000000000000000000000000',
     executor: 'self',
   })
-
+  addLog?.('Authorization: ' + authorization) 
   const hash = await walletClient.writeContract({
     address: walletClient.account.address,
     abi: passkeyDelegationAbi,
     functionName: 'initialize',
-    args: [publicKey.x, publicKey.y],
+    args: [walletClient.account.address, publicKey.x, publicKey.y],
     authorizationList: [authorization],
     chain: walletClient.chain,
     account: walletClient.account,
   })
-
+  addLog?.('Hash: ' + hash)
   return hash
 }
 
@@ -206,7 +215,7 @@ export async function createPasskeyDelegation({
     // Store in localStorage for persistence
     storeWebAuthnData({
       credential,
-      publicKey: { x: pubKeyX.toString(), y: pubKeyY.toString() }
+      publicKey: { x: pubKeyX.toString(), y: pubKeyY.toString() },
     })
 
     addLog?.(`Passkey created with ID: ${credential.id.slice(0, 16)}...`)
@@ -218,7 +227,7 @@ export async function createPasskeyDelegation({
     addLog?.(`Public Key X: ${pubKeyX.toString(16).slice(0, 16)}...`)
     addLog?.(`Public Key Y: ${pubKeyY.toString(16).slice(0, 16)}...`)
 
-    const hash = await authorize({ walletClient, publicKey: { x: pubKeyX, y: pubKeyY } })
+    const hash = await authorize({ walletClient, publicKey: { x: pubKeyX, y: pubKeyY }, addLog   })
     const txHashLink = `https://${walletClient.chain?.name}.etherscan.io/tx/${hash}`
     addLog?.(`Delegation transaction sent: ${txHashLink}`)
     addLog?.('EOA successfully delegated! Passkey can now control transactions.')
@@ -276,10 +285,14 @@ export async function executeWithPasskey({
       args: [eoaAccount.address],
     })
 
+    if (!walletClient.account?.address) {
+      throw new Error('No account found in wallet client')
+    }
     // Encode the calls and nonce for signing
     const messageToSign = encodeAbiParameters(
-      parseAbiParameters('(address to, uint256 value, bytes data)[] calls, uint256 nonce'),
+      parseAbiParameters('address eoa, (address to, uint256 value, bytes data)[] calls, uint256 nonce'),
       [
+        walletClient.account?.address,
         calls.map(call => ({
           to: call.to,
           value: call.value,
@@ -375,7 +388,7 @@ export function getDelegationStatus() {
     return null
   }
 
-  const { credential } = storedData
+  const { credential, walletType } = storedData
 
   // Note: WebAuthn account needs to be recreated when needed
   // since we can't serialize the full account object
@@ -384,6 +397,7 @@ export function getDelegationStatus() {
     passkeyId: credential?.id,
     webAuthnAccount: null, // Will be recreated when needed
     credential,
+    walletType: walletType || 'local', // Default to 'local' for backward compatibility
   }
 }
 

@@ -21,10 +21,44 @@ export const passkeyDelegationAbi = [
   },
   {
     "type": "function",
+    "name": "credentials",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "pubKeyX",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "pubKeyY",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "nonce",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "initialized",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "execute",
     "inputs": [
       {
-        "name": "wallet",
+        "name": "eoa",
         "type": "address",
         "internalType": "address"
       },
@@ -75,7 +109,7 @@ export const passkeyDelegationAbi = [
     "name": "executeSingle",
     "inputs": [
       {
-        "name": "wallet",
+        "name": "eoa",
         "type": "address",
         "internalType": "address"
       },
@@ -119,7 +153,7 @@ export const passkeyDelegationAbi = [
     "name": "getNonce",
     "inputs": [
       {
-        "name": "wallet",
+        "name": "eoa",
         "type": "address",
         "internalType": "address"
       }
@@ -138,7 +172,7 @@ export const passkeyDelegationAbi = [
     "name": "getPublicKey",
     "inputs": [
       {
-        "name": "wallet",
+        "name": "eoa",
         "type": "address",
         "internalType": "address"
       }
@@ -162,6 +196,11 @@ export const passkeyDelegationAbi = [
     "name": "initialize",
     "inputs": [
       {
+        "name": "eoa",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
         "name": "_pubKeyX",
         "type": "uint256",
         "internalType": "uint256"
@@ -180,7 +219,7 @@ export const passkeyDelegationAbi = [
     "name": "isInitialized",
     "inputs": [
       {
-        "name": "wallet",
+        "name": "eoa",
         "type": "address",
         "internalType": "address"
       }
@@ -203,40 +242,6 @@ export const passkeyDelegationAbi = [
         "name": "",
         "type": "uint176",
         "internalType": "P256.Verifiers"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "wallets",
-    "inputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "pubKeyX",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "pubKeyY",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "nonce",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "initialized",
-        "type": "bool",
-        "internalType": "bool"
       }
     ],
     "stateMutability": "view"

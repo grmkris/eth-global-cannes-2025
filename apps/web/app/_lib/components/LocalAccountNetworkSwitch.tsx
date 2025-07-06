@@ -10,24 +10,32 @@ import {
 } from '@workspace/ui/components/select'
 import { Badge } from '@workspace/ui/components/badge'
 import { Network } from 'lucide-react'
+import { useActiveChain, useSetActiveChain } from '../eoa-hooks'
 
-interface LocalAccountNetworkSwitchProps {
-  currentChainId: number
-  onNetworkChange: (chainId: number) => void
-  disabled?: boolean
-}
-
-export function LocalAccountNetworkSwitch({ 
-  currentChainId, 
-  onNetworkChange,
-  disabled = false
-}: LocalAccountNetworkSwitchProps) {
+export function LocalAccountNetworkSwitch() {
   const chains = useChains()
+  const activeChain = useActiveChain()
+  const setActiveChain = useSetActiveChain()
   
+  const currentChainId = activeChain.data?.id
+  const disabled = !activeChain.data || setActiveChain.isPending
+  
+  const handleNetworkChange = (value: string) => {
+    const chainId = parseInt(value)
+    const selectedChain = chains.find(chain => chain.id === chainId)
+    if (selectedChain) {
+      setActiveChain.mutate(selectedChain)
+    }
+  }
+
+  if (!currentChainId) {
+    return null
+  }
+
   return (
     <Select 
       value={currentChainId.toString()} 
-      onValueChange={(value) => onNetworkChange(parseInt(value))}
+      onValueChange={handleNetworkChange}
       disabled={disabled}
     >
       <SelectTrigger className="w-[200px]">

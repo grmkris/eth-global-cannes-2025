@@ -6,9 +6,13 @@ libs = ["lib"]
 [rpc_endpoints]
 zircuit-garfield-testnet = "https://garfield-testnet.zircuit.com/"
 sepolia = "${SEPOLIA_RPC_URL}"
+op-sepolia = "${OP_SEPOLIA_RPC_URL}"
+arb-sepolia = "${ARB_SEPOLIA_RPC_URL}"
 
 [etherscan]
 sepolia = { key = "${ETHERSCAN_API_KEY}" }
+op-sepolia = { key = "${ETHERSCAN_API_KEY}" }
+arb-sepolia = { key = "${ETHERSCAN_API_KEY}" }
 
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

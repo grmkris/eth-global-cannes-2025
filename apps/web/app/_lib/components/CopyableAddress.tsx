@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Copy, Check, ExternalLink } from 'lucide-react'
 import { Button } from '@workspace/ui/components/button'
-import { getBlockExplorerUrl } from '../../7702/_lib/block-explorer-utils'
+import { useChains } from 'wagmi'
 
 interface CopyableAddressProps {
   address: string
@@ -14,6 +14,7 @@ interface CopyableAddressProps {
 
 export function CopyableAddress({ address, chainId, showFullAddress = false, className = '' }: CopyableAddressProps) {
   const [copied, setCopied] = useState(false)
+  const chains = useChains()
   
   const displayAddress = showFullAddress 
     ? address 
@@ -25,7 +26,7 @@ export function CopyableAddress({ address, chainId, showFullAddress = false, cla
     setTimeout(() => setCopied(false), 2000)
   }
   
-  const explorerUrl = chainId ? getBlockExplorerUrl(chainId, address, 'address') : null
+  const explorerUrl = chainId ? chains.find(chain => chain.id === chainId)?.blockExplorers?.default.url : null
   
   return (
     <div className={`inline-flex items-center gap-1 ${className}`}>

@@ -1,16 +1,24 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEoaWalletClient } from "./eoa-hooks";
-import { useActiveChain } from "./eoa-hooks";
 import { Call, clearDelegation, createPasskeyDelegation, executeWithPasskey, getDelegationStatus } from "./7702";
 import React from "react";
 
-export const useCreatePasskeyDelegation = () => {
+export const useCreatePasskeyDelegation = (props: { addLog?: (message: string | React.ReactNode) => void }) => {
   const queryClient = useQueryClient();
   const eoaWalletClient = useEoaWalletClient();
-  const activeChain = useActiveChain();
   return useMutation({
     mutationKey: ['createPasskeyDelegation'],
-    mutationFn: () => createPasskeyDelegation({ walletClient: eoaWalletClient.data! }),
+    mutationFn: () => {
+      // Use provided walletClient for metamask/cold wallet, otherwise use eoaWalletClient
+      if (!eoaWalletClient.data) {
+        throw new Error('No wallet client found');
+      }
+      const client = eoaWalletClient.data;
+      return createPasskeyDelegation({ 
+        walletClient: client, 
+        addLog: props.addLog,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries();
     },

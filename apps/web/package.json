@@ -13,6 +13,7 @@
 		"format": "biome format --write"
 	},
 	"dependencies": {
+		"@avail-project/nexus": "^0.1.0",
 		"@ledgerhq/device-management-kit": "^0.7.0",
 		"@ledgerhq/device-signer-kit-ethereum": "^1.5.0",
 		"@ledgerhq/device-transport-kit-web-hid": "^1.1.0",
@@ -24,6 +25,7 @@
 		"@wagmi/core": "^2.17.3",
 		"@workspace/ui": "workspace:*",
 		"abitype": "^1.0.8",
+		"buffer": "^6.0.3",
 		"ethers": "^6.15.0",
 		"lucide-react": "^0.475.0",
 		"next": "^15.2.3",

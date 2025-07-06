@@ -1,13 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getOrCreateEoa, clearEoa, getActiveChain, setActiveChain } from "./eoa";
-import type { Chain } from "viem";
+import { sepolia, type Chain } from "viem/chains";
+import { type PublicClient } from "viem";
 
 export const useEoaWalletClient = () => {
   const activeChain = useActiveChain();
   return useQuery({
     queryKey: ["eoa-wallet-client"],
-    queryFn: () => getOrCreateEoa(activeChain.data!),
-    enabled: !!activeChain.data,
+    queryFn: () => getOrCreateEoa(activeChain.data ?? sepolia),
   });
 };
 
@@ -41,5 +41,18 @@ export const useSetActiveChain = () => {
     onSuccess: () => {
       queryClient.invalidateQueries();
     },
+  });
+};
+
+export const useETHBalance = ({ address, publicClient }: { address?: string; publicClient: PublicClient }) => {
+  return useQuery({
+    queryKey: ["eth-balance", address, publicClient.chain?.id],
+    queryFn: async () => {
+      if (!address) return null;
+      const balance = await publicClient.getBalance({ address: address as `0x${string}` });
+      return balance;
+    },
+    enabled: !!address && !!publicClient,
+    refetchInterval: 10000, // Refetch every 10 seconds
   });
 };

@@ -17,13 +17,18 @@ export const useCircle7702Transfer = () => {
 };
 
 export const useUSDCBalance = (props: {
-  walletClient: WalletClient
+  walletClient?: WalletClient
   publicClient: PublicClient
 }) => {
   const { walletClient, publicClient } = props;
   return useQuery({
     queryKey: ["usdc-balance"],
-    queryFn: () => getUSDCBalance({ walletClient: walletClient, publicClient: publicClient }),
+    queryFn: () => {
+      if (!walletClient || !publicClient) {
+        throw new Error('Missing wallet client or public client')
+      }
+      return getUSDCBalance({ walletClient: walletClient, publicClient: publicClient })
+    },
     enabled: !!walletClient && !!publicClient,
   });
 };

@@ -1,134 +1,581 @@
-"use client"
+'use client'
 
-import { Button } from "@workspace/ui/components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card";
-import { CirclePaymasterTransferFull } from "../components/CirclePaymasterTransferFull";
-import { useAccount } from "wagmi";
-import { Wallet, ArrowRight, Shield, Zap } from "lucide-react";
-import Link from "next/link";
+import { useState } from 'react'
+import { Button } from "@workspace/ui/components/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card"
+import { Alert, AlertDescription } from "@workspace/ui/components/alert"
+import { Badge } from "@workspace/ui/components/badge"
+import { Separator } from "@workspace/ui/components/separator"
+import { ScrollArea } from "@workspace/ui/components/scroll-area"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
+import { Input } from "@workspace/ui/components/input"
+import { Label } from "@workspace/ui/components/label"
+import {
+	CheckCircle2, AlertCircle, Loader2, Key, Shield,
+	Network, MessageSquare, Zap, DollarSign
+} from 'lucide-react'
+
+// Import new hooks from _lib
+import {
+	useCreatePasskeyDelegation,
+	useExecuteWithPasskey,
+	useGetDelegationStatus,
+	useClearDelegation
+} from './_lib/7702-hooks'
+import {
+	useEoaWalletClient,
+	useClearEoa,
+	useActiveChain,
+	useSetActiveChain,
+	useETHBalance
+} from './_lib/eoa-hooks'
+import {
+	useCircle7702Transfer,
+	useUSDCBalance
+} from './_lib/circle-hooks'
+import { getNetworkConfig, getContractAddress } from './_lib/network-config'
+import { CopyableAddress } from './_lib/components/CopyableAddress'
+import { LocalAccountNetworkSwitch } from './_lib/components/LocalAccountNetworkSwitch'
+import { LedgerConnect } from './_lib/ledger/components/LedgerConnect'
+import { LedgerAuthDemo } from './_lib/ledger/components/LedgerAuthDemo'
+import { LedgerFullDemo } from './_lib/ledger/components/LedgerFullDemo'
+import { http, createPublicClient, type Address } from 'viem'
+import { type Call } from './_lib/7702'
+import { sepolia } from 'viem/chains'
 
 export default function Page() {
-	const { isConnected, address } = useAccount();
+	const [logs, setLogs] = useState<Array<{ timestamp: string; message: string | React.ReactNode }>>([])
+	const [recipientAddress, setRecipientAddress] = useState<string>('')
+	const [usdcAmount, setUsdcAmount] = useState<string>('10')
 
-	// These would typically come from environment variables or configuration
-	const recipientAddress = "0x219B10CD3e58da840bB10AF6cae9240ea4f404A2"; // Replace with actual recipient
+	// Hooks
+	const activeChain = useActiveChain()
+	const eoaWalletClient = useEoaWalletClient()
+	const clearEoa = useClearEoa()
+
+	// Get delegation status
+	const { data: delegation } = useGetDelegationStatus()
+
+	// Determine current wallet client and chain
+	const chainId = activeChain.data?.id
+	const currentWalletClient = eoaWalletClient.data
+
+	const publicClient = createPublicClient({
+		chain: activeChain.data ?? sepolia,
+		transport: http()
+	})
+
+	const { data: usdcBalance } = useUSDCBalance({
+		walletClient: currentWalletClient,
+		publicClient: publicClient
+	})
+
+	const { data: ethBalance } = useETHBalance({
+		address: currentWalletClient?.account?.address,
+		publicClient: publicClient
+	})
+
+	// Mutations
+	const createDelegationMutation = useCreatePasskeyDelegation({
+		addLog: (message) => {
+			setLogs(prev => [...prev, {
+				timestamp: new Date().toLocaleTimeString(),
+				message
+			}])
+		}
+	})
+	const executeWithPasskeyMutation = useExecuteWithPasskey({
+		addLog: (message) => {
+			setLogs(prev => [...prev, {
+				timestamp: new Date().toLocaleTimeString(),
+				message
+			}])
+		}
+	})
+	const clearDelegationMutation = useClearDelegation()
+	const circle7702TransferMutation = useCircle7702Transfer()
+
+	// Get network config
+	const networkConfig = getNetworkConfig(chainId ?? 11155111)
+	const contractAddress = networkConfig?.webAuthnDelegationAddress
+	const isNetworkSupported = !!contractAddress
+
+	const addLog = (message: string | React.ReactNode) => {
+		setLogs(prev => [...prev, {
+			timestamp: new Date().toLocaleTimeString(),
+			message
+		}])
+	}
+
+	const handleCreateDelegation = async () => {
+		try {
+			await createDelegationMutation.mutateAsync()
+
+			addLog('Passkey delegation created successfully!')
+		} catch (error) {
+			addLog(`Error creating delegation: ${error instanceof Error ? error.message : 'Unknown error'}`)
+		}
+	}
+
+	const handleExecuteWithPasskey = async () => {
+		if (!delegation) {
+			addLog('No active delegation found')
+			return
+		}
+
+		try {
+			// Get the snoj contract address for demo
+			const snojContractAddress = getContractAddress(chainId ?? 11155111, 'snojContractAddress')
+			if (!snojContractAddress) {
+				addLog('Demo contract not configured for this network')
+				return
+			}
+
+			// Create test calls (simplified for demo)
+			const calls: Call[] = [{
+				to: snojContractAddress,
+				value: 0n,
+				data: '0x' // Add proper function call data here
+			}]
+
+			await executeWithPasskeyMutation.mutateAsync({
+				calls: calls
+			})
+			addLog('Transaction executed successfully!')
+		} catch (error) {
+			addLog(`Error executing transaction: ${error instanceof Error ? error.message : 'Unknown error'}`)
+		}
+	}
+
+	const handleCircleTransfer = async () => {
+		if (!publicClient || !currentWalletClient || !recipientAddress || !usdcAmount) {
+			console.log('Missing required parameters for transfer', publicClient, currentWalletClient, recipientAddress, usdcAmount)
+			addLog('Missing required parameters for transfer')
+			return
+		}
+
+		try {
+			addLog('Initiating Circle paymaster USDC transfer...')
+			await circle7702TransferMutation.mutateAsync({
+				walletClient: currentWalletClient,
+				publicClient,
+				amount: BigInt(usdcAmount),
+				recipientAddress: recipientAddress as Address
+			})
+			addLog('USDC transfer completed successfully!')
+		} catch (error) {
+			addLog(`Error during transfer: ${error instanceof Error ? error.message : 'Unknown error'}`)
+		}
+	}
+
+	const handleClearDelegation = async () => {
+		try {
+			await clearDelegationMutation.mutateAsync()
+			clearEoa.mutate()
+			setLogs([])
+			addLog('Delegation cleared successfully')
+		} catch (error) {
+			addLog(`Error clearing delegation: ${error instanceof Error ? error.message : 'Unknown error'}`)
+		}
+	}
 
 	return (
-		<div className="flex flex-col items-center justify-center min-h-svh p-4">
-			<div className="flex flex-col items-center justify-center gap-8 w-full max-w-6xl">
+		<div className="container mx-auto py-8 px-4 max-w-6xl">
+			<div className="space-y-6">
 				{/* Header */}
 				<div className="text-center">
-					<h1 className="text-4xl font-bold mb-4">ETH Global Cannes 2025</h1>
-					<p className="text-muted-foreground text-center max-w-2xl text-lg">
-						Welcome to ETH Global Cannes 2025 - Experience the future of Web3 with our innovative wallet solutions
+					<h1 className="text-4xl font-bold mb-4">Cross-Chain USDC Smart Account</h1>
+					<p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+						A powerful passkey-based smart account wallet with multi-chain support,
+						hardware wallet integration, and gasless USDC transfers
 					</p>
 				</div>
 
-				{/* Wallet Status */}
-				<Card className="w-full max-w-md">
+				{/* Network Status */}
+				<Card>
 					<CardHeader>
-						<CardTitle className="flex items-center gap-2">
-							<Wallet className="h-5 w-5" />
-							Wallet Status
-						</CardTitle>
+						<div className="flex items-center justify-between">
+							<CardTitle className="flex items-center gap-2">
+								<Network className="h-5 w-5" />
+								Network & Wallet Status
+							</CardTitle>
+							<LocalAccountNetworkSwitch />
+						</div>
 					</CardHeader>
-					<CardContent>
-						{isConnected ? (
+					<CardContent className="space-y-3">
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 							<div className="space-y-2">
-								<div className="flex items-center gap-2 text-green-600">
-									<div className="w-2 h-2 bg-green-500 rounded-full"></div>
-									<span className="text-sm font-medium">Connected</span>
+								<div className="flex items-center justify-between">
+									<span className="text-sm font-medium">Network:</span>
+									<Badge variant="default">
+										{activeChain.data?.name}
+									</Badge>
 								</div>
-								<div className="text-xs font-mono bg-muted p-2 rounded">
-									{address?.slice(0, 6)}...{address?.slice(-4)}
+								<div className="flex items-center justify-between">
+									<span className="text-sm font-medium">Chain ID:</span>
+									<Badge variant="outline">{chainId}</Badge>
+								</div>
+								<div className="flex items-center justify-between">
+									<span className="text-sm font-medium">EIP-7702 Support:</span>
+									<Badge variant={isNetworkSupported ? "default" : "destructive"}>
+										{isNetworkSupported ? 'Supported' : 'Not Supported'}
+									</Badge>
 								</div>
 							</div>
-						) : (
+
 							<div className="space-y-2">
-								<div className="flex items-center gap-2 text-orange-600">
-									<div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-									<span className="text-sm font-medium">Not Connected</span>
+								<div className="flex items-center justify-between">
+									<span className="text-sm font-medium">Wallet:</span>
+									<Badge variant={currentWalletClient ? "default" : "secondary"}>
+										{currentWalletClient ? 'Connected' : 'Not Connected'}
+									</Badge>
 								</div>
-								<p className="text-xs text-muted-foreground">
-									Connect your wallet to use the Circle Paymaster features
-								</p>
+								{currentWalletClient && (
+									<>
+										<div className="flex items-center justify-between">
+											<span className="text-sm font-medium">Address:</span>
+											<CopyableAddress
+												address={currentWalletClient.account?.address || ''}
+												chainId={chainId}
+											/>
+										</div>
+										<div className="flex items-center justify-between">
+											<span className="text-sm font-medium">ETH Balance:</span>
+											<Badge variant="outline">
+												{ethBalance ? `${(Number(ethBalance) / 1e18).toFixed(4)} ETH` : 'Loading...'}
+											</Badge>
+										</div>
+										<div className="flex items-center justify-between">
+											<span className="text-sm font-medium">USDC Balance:</span>
+											<Badge variant="outline">
+												{usdcBalance ? `${(Number(usdcBalance) / 1e6).toFixed(2)} USDC` : 'Loading...'}
+											</Badge>
+										</div>
+									</>
+								)}
 							</div>
-						)}
+						</div>
 					</CardContent>
 				</Card>
 
-				{/* Navigation Cards */}
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl">
-					<Link href="/7702" className="block">
-						<Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
-							<CardHeader>
-								<CardTitle className="flex items-center gap-2">
-									<Shield className="h-5 w-5" />
-									EIP-7702 Wallet
-								</CardTitle>
-								<CardDescription>
-									Advanced wallet features with passkey delegation and hardware wallet integration
-								</CardDescription>
-							</CardHeader>
-							<CardContent>
-								<div className="flex items-center justify-between">
-									<span className="text-sm text-muted-foreground">Explore EIP-7702 features</span>
-									<ArrowRight className="h-4 w-4" />
-								</div>
-							</CardContent>
-						</Card>
-					</Link>
+				<Tabs defaultValue="wallet" className="w-full">
+					<TabsList className="grid w-full grid-cols-3">
+						<TabsTrigger value="wallet">
+							<Key className="h-4 w-4 mr-2" />
+							Wallet Setup
+						</TabsTrigger>
+						<TabsTrigger value="transfer">
+							<DollarSign className="h-4 w-4 mr-2" />
+							USDC Transfers
+						</TabsTrigger>
+						<TabsTrigger value="hardware">
+							<Shield className="h-4 w-4 mr-2" />
+							Hardware Wallet
+						</TabsTrigger>
+					</TabsList>
 
-					<Link href="/circle-paymaster" className="block">
-						<Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
+					{/* Wallet Setup Tab */}
+					<TabsContent value="wallet" className="space-y-6 mt-6">
+						{!delegation ? (
+							<Card>
+								<CardHeader>
+									<CardTitle className="flex items-center gap-2">
+										<Key className="h-5 w-5" />
+										Create Passkey Delegation
+									</CardTitle>
+									<CardDescription>
+										Create your smart account with passkey delegation using a local EOA
+									</CardDescription>
+								</CardHeader>
+								<CardContent className="space-y-4">
+									<Alert>
+										<Network className="h-4 w-4" />
+										<AlertDescription>
+											Your local EOA is automatically generated and stored securely. You can switch networks using the dropdown above.
+										</AlertDescription>
+									</Alert>
+
+									{currentWalletClient ? (
+										<div className="space-y-4">
+											<div className="rounded-lg border p-4 space-y-2">
+												<div className="flex items-center justify-between">
+													<span className="text-sm font-medium">EOA Address:</span>
+													<CopyableAddress
+														address={currentWalletClient.account?.address || ''}
+														chainId={chainId}
+													/>
+												</div>
+												<div className="flex items-center justify-between">
+													<span className="text-sm font-medium">Status:</span>
+													<Badge variant="default">
+														Ready
+													</Badge>
+												</div>
+											</div>
+
+											<Button
+												onClick={handleCreateDelegation}
+												disabled={createDelegationMutation.isPending || !isNetworkSupported}
+												className="w-full"
+											>
+												{createDelegationMutation.isPending ? (
+													<>
+														<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+														Creating Delegation...
+													</>
+												) : (
+													'Create Passkey Delegation'
+												)}
+											</Button>
+										</div>
+									) : (
+										<p className="text-sm text-muted-foreground text-center py-8">Loading local account...</p>
+									)}
+								</CardContent>
+							</Card>
+						) : (
+							<Card>
+								<CardHeader>
+									<CardTitle className="flex items-center gap-2">
+										<CheckCircle2 className="h-5 w-5 text-green-500" />
+										Passkey Delegation Active
+									</CardTitle>
+									<CardDescription>
+										Your smart account is ready for secure transactions
+									</CardDescription>
+								</CardHeader>
+								<CardContent className="space-y-4">
+									<div className="space-y-2">
+										<div className="flex items-center justify-between">
+											<span className="text-sm font-medium">EOA Address:</span>
+											<CopyableAddress
+												address={currentWalletClient?.account?.address || ''}
+												chainId={chainId}
+											/>
+										</div>
+										<div className="flex items-center justify-between">
+											<span className="text-sm font-medium">Passkey ID:</span>
+											<Badge variant="outline" className="font-mono text-xs">
+												{delegation.passkeyId.substring(0, 16)}...
+											</Badge>
+										</div>
+										<div className="flex items-center justify-between">
+											<span className="text-sm font-medium">Delegation Contract:</span>
+											<CopyableAddress address={contractAddress || ''} chainId={chainId} />
+										</div>
+									</div>
+
+									<Separator />
+
+									<div className="space-y-2">
+										<h4 className="font-medium">Test Transaction Execution</h4>
+										<p className="text-sm text-muted-foreground">
+											Execute a test transaction using your passkey
+										</p>
+										<div className="flex gap-2">
+											<Button
+												onClick={handleExecuteWithPasskey}
+												disabled={executeWithPasskeyMutation.isPending}
+												className="flex-1"
+											>
+												{executeWithPasskeyMutation.isPending ? (
+													<>
+														<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+														Executing...
+													</>
+												) : (
+													'Execute Test Transaction'
+												)}
+											</Button>
+											<Button
+												onClick={handleClearDelegation}
+												disabled={clearDelegationMutation.isPending}
+												variant="outline"
+											>
+												Clear
+											</Button>
+										</div>
+									</div>
+								</CardContent>
+							</Card>
+						)}
+					</TabsContent>
+
+					{/* USDC Transfers Tab */}
+					<TabsContent value="transfer" className="space-y-6 mt-6">
+						<Card>
 							<CardHeader>
 								<CardTitle className="flex items-center gap-2">
 									<Zap className="h-5 w-5" />
-									Circle Paymaster
+									Gasless USDC Transfers
 								</CardTitle>
 								<CardDescription>
-									Full Circle Paymaster demo with USDC transfers
+									Transfer USDC without paying gas fees using Circle's paymaster
+								</CardDescription>
+							</CardHeader>
+							<CardContent className="space-y-4">
+								{!delegation ? (
+									<Alert>
+										<AlertCircle className="h-4 w-4" />
+										<AlertDescription>
+											Please create a passkey delegation first to enable USDC transfers
+										</AlertDescription>
+									</Alert>
+								) : (
+									<>
+										<div className="space-y-2">
+											<Label htmlFor="recipient">Recipient Address</Label>
+											<Input
+												id="recipient"
+												placeholder="0x..."
+												value={recipientAddress}
+												onChange={(e) => setRecipientAddress(e.target.value)}
+											/>
+										</div>
+
+										<div className="space-y-2">
+											<Label htmlFor="amount">Amount (USDC)</Label>
+											<Input
+												id="amount"
+												type="number"
+												placeholder="10"
+												value={usdcAmount}
+												onChange={(e) => setUsdcAmount(e.target.value)}
+											/>
+											<p className="text-xs text-muted-foreground">
+												Available: {usdcBalance ? `${(Number(usdcBalance) / 1e6).toFixed(2)} USDC` : 'Loading...'}
+											</p>
+										</div>
+
+										<Button
+											onClick={handleCircleTransfer}
+											disabled={
+												circle7702TransferMutation.isPending ||
+												!recipientAddress ||
+												!usdcAmount ||
+												parseFloat(usdcAmount) <= 0
+											}
+											className="w-full"
+										>
+											{circle7702TransferMutation.isPending ? (
+												<>
+													<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+													Transferring...
+												</>
+											) : (
+												'Transfer USDC'
+											)}
+										</Button>
+									</>
+								)}
+							</CardContent>
+						</Card>
+					</TabsContent>
+
+					{/* Hardware Wallet Tab */}
+					<TabsContent value="hardware" className="space-y-6 mt-6">
+						<Card>
+							<CardHeader>
+								<CardTitle className="flex items-center gap-2">
+									<Shield className="h-5 w-5" />
+									Hardware Wallet Integration
+								</CardTitle>
+								<CardDescription>
+									Connect and manage your Ledger hardware wallet
 								</CardDescription>
 							</CardHeader>
 							<CardContent>
-								<div className="flex items-center justify-between">
-									<span className="text-sm text-muted-foreground">View full demo</span>
-									<ArrowRight className="h-4 w-4" />
-								</div>
+								<LedgerConnect />
 							</CardContent>
 						</Card>
-					</Link>
-				</div>
 
-				{/* Circle Paymaster Component */}
-				{isConnected && (
-					<div className="w-full max-w-4xl">
-						<div className="text-center mb-6">
-							<h2 className="text-2xl font-bold mb-2">Quick Transfer Demo</h2>
+						<Card>
+							<CardHeader>
+								<CardTitle className="flex items-center gap-2">
+									<MessageSquare className="h-5 w-5" />
+									Ledger Authentication
+								</CardTitle>
+								<CardDescription>
+									Test authentication and signing with your Ledger device
+								</CardDescription>
+							</CardHeader>
+							<CardContent className="space-y-4">
+								<LedgerAuthDemo />
+								<Separator />
+								<LedgerFullDemo />
+							</CardContent>
+						</Card>
+					</TabsContent>
+				</Tabs>
+
+				{/* Activity Logs */}
+				<Card>
+					<CardHeader>
+						<CardTitle>Activity Logs</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<ScrollArea className="h-[200px] w-full rounded-md border p-4">
+							{logs.length === 0 ? (
+								<p className="text-sm text-muted-foreground">No activity yet...</p>
+							) : (
+								<div className="space-y-1">
+									{logs.map((log, index) => (
+										<div key={index} className="text-sm font-mono">
+											<span className="text-muted-foreground">[{log.timestamp}]</span>{' '}
+											{typeof log.message === 'string' ? log.message : log.message}
+										</div>
+									))}
+								</div>
+							)}
+						</ScrollArea>
+					</CardContent>
+				</Card>
+
+				{/* Info Section */}
+				<Card>
+					<CardHeader>
+						<CardTitle>Features</CardTitle>
+					</CardHeader>
+					<CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+						<div className="space-y-2">
+							<h4 className="font-medium flex items-center gap-2">
+								<Key className="h-4 w-4" />
+								Passkey Authentication
+							</h4>
 							<p className="text-muted-foreground">
-								Transfer USDC using Circle Paymaster with your connected wallet
+								Secure your wallet with biometric authentication using WebAuthn passkeys
 							</p>
 						</div>
-						<div className="flex justify-center">
-							<CirclePaymasterTransferFull
-								recipientAddress={recipientAddress}
-							/>
+						<div className="space-y-2">
+							<h4 className="font-medium flex items-center gap-2">
+								<Network className="h-4 w-4" />
+								Multi-Chain Support
+							</h4>
+							<p className="text-muted-foreground">
+								Seamlessly switch between supported networks with unified account management
+							</p>
 						</div>
-					</div>
-				)}
-
-				{/* Connect Wallet Button */}
-				{!isConnected && (
-					<div className="text-center">
-						<Button size="lg">
-							<appkit-button />
-						</Button>
-						<p className="text-sm text-muted-foreground mt-2">
-							Connect your wallet to access all features
-						</p>
-					</div>
-				)}
+						<div className="space-y-2">
+							<h4 className="font-medium flex items-center gap-2">
+								<Zap className="h-4 w-4" />
+								Gasless Transactions
+							</h4>
+							<p className="text-muted-foreground">
+								Transfer USDC without paying gas fees using Circle's paymaster integration
+							</p>
+						</div>
+						<div className="space-y-2">
+							<h4 className="font-medium flex items-center gap-2">
+								<Shield className="h-4 w-4" />
+								Hardware Wallet Support
+							</h4>
+							<p className="text-muted-foreground">
+								Connect Ledger devices for enhanced security and cold storage capabilities
+							</p>
+						</div>
+					</CardContent>
+				</Card>
 			</div>
 		</div>
-	);
+	)
 }

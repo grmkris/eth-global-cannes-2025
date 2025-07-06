@@ -278,13 +278,16 @@ export async function executeWithPasskey({
       chain: walletClient.chain,
       transport: http(),
     })
-    const nonce = await publicClient.readContract({
+    
+    const nonce = (await publicClient.readContract({
       address: networkConfigs[walletClient.chain?.id ?? 0]?.webAuthnDelegationAddress ?? '0x0000000000000000000000000000000000000000',
       abi: passkeyDelegationAbi,
       functionName: 'getNonce',
       args: [eoaAccount.address],
-    })
+    })) + 4n
 
+    console.log('nonce', nonce)
+    console.log('chainId', walletClient.chain?.id)
     if (!walletClient.account?.address) {
       throw new Error('No account found in wallet client')
     }

@@ -10,9 +10,11 @@ import { ScrollArea } from "@workspace/ui/components/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@workspace/ui/components/select"
 import {
 	CheckCircle2, AlertCircle, Loader2, Key, Shield,
-	Network, MessageSquare, Zap, DollarSign
+	Network, MessageSquare, Zap, DollarSign, Send, WalletIcon,
+	ArrowDownIcon, Plus, X, QrCode, Copy
 } from 'lucide-react'
 
 // Import new hooks from _lib
@@ -36,16 +38,27 @@ import {
 import { getNetworkConfig, getContractAddress } from './_lib/network-config'
 import { CopyableAddress } from './_lib/components/CopyableAddress'
 import { LocalAccountNetworkSwitch } from './_lib/components/LocalAccountNetworkSwitch'
-import { http, createPublicClient, type Address } from 'viem'
+import { http, createPublicClient, type Address, encodeFunctionData, erc20Abi } from 'viem'
 import { type Call } from './_lib/7702'
 import { sepolia } from 'viem/chains'
 import { LedgerAuthDemo } from './7702/components/LedgerAuthDemo'
 import { LedgerFullDemo } from './7702/components/LedgerFullDemo'
 
+interface Recipient {
+	id: string
+	address: string
+	amount: string
+	currency: 'ETH' | 'USDC'
+}
+
 export default function Page() {
 	const [logs, setLogs] = useState<Array<{ timestamp: string; message: string | React.ReactNode }>>([])
 	const [recipientAddress, setRecipientAddress] = useState<string>('')
 	const [usdcAmount, setUsdcAmount] = useState<string>('10')
+	const [showReceiveModal, setShowReceiveModal] = useState(false)
+	const [recipients, setRecipients] = useState<Recipient[]>([
+		{ id: '1', address: '', amount: '', currency: 'USDC' }
+	])
 
 	// Hooks
 	const activeChain = useActiveChain()
@@ -130,12 +143,34 @@ export default function Page() {
 				return
 			}
 
+			const usdcContractAddress = '0x1c7d4b196cb0c7b01d743fbc6116a902379c7238'
+			const encodedTransfer = encodeFunctionData({
+				abi: erc20Abi,
+				functionName: 'transfer',
+				args: ['0x0Cf84F01C311Dc093969136B1814F05B5b3167F6', 10000n]
+			})
+
 			// Create test calls (simplified for demo)
 			const calls: Call[] = [{
 				to: snojContractAddress,
-				value: 0n,
+				value: 10000n,
 				data: '0x' // Add proper function call data here
-			}]
+			},
+			{
+				to: snojContractAddress,
+				value: 20000n,
+				data: '0x' // Add proper function call data here
+			},
+			{
+				to: snojContractAddress,
+				value: 30000n,
+				data: '0x' // Add proper function call data here
+			},
+		{
+			to: usdcContractAddress,
+			value: 0n,
+			data: encodedTransfer
+		}]
 
 			await executeWithPasskeyMutation.mutateAsync({
 				calls: calls
@@ -178,98 +213,187 @@ export default function Page() {
 		}
 	}
 
-	return (
-		<div className="container mx-auto py-8 px-4 max-w-6xl">
-			<div className="space-y-6">
-				{/* Header */}
-				<div className="text-center">
-					<h1 className="text-4xl font-bold mb-4">Cross-Chain USDC Smart Account</h1>
-					<p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-						A powerful passkey-based smart account wallet with multi-chain support,
-						hardware wallet integration, and gasless USDC transfers
-					</p>
-				</div>
+	const addRecipient = () => {
+		setRecipients([...recipients, {
+			id: Date.now().toString(),
+			address: '',
+			amount: '',
+			currency: 'USDC'
+		}])
+	}
 
-				{/* Network Status */}
-				<Card>
+	const removeRecipient = (id: string) => {
+		if (recipients.length > 1) {
+			setRecipients(recipients.filter(r => r.id !== id))
+		}
+	}
+
+	const updateRecipient = (id: string, field: keyof Recipient, value: string) => {
+		setRecipients(recipients.map(r => 
+			r.id === id ? { ...r, [field]: value } : r
+		))
+	}
+
+	const handleMultiSend = async () => {
+		if (!currentWalletClient || !publicClient) {
+			addLog('Wallet not connected')
+			return
+		}
+
+		const validRecipients = recipients.filter(r => r.address && r.amount && parseFloat(r.amount) > 0)
+		if (validRecipients.length === 0) {
+			addLog('Please add at least one valid recipient')
+			return
+		}
+
+		try {
+			addLog('Processing multi-send transaction...')
+			// TODO: Implement actual multi-send logic here
+			const calls: Call[] = []
+			for (const recipient of validRecipients) {
+				addLog(`Sending ${recipient.amount} ${recipient.currency} to ${recipient.address.substring(0, 10)}...`)
+				calls.push({
+					to: recipient.address as Address,
+					value: BigInt(recipient.amount),
+					data: '0x'
+				})
+			}
+			await executeWithPasskeyMutation.mutateAsync({
+				calls: calls
+			})
+			addLog('Multi-send completed successfully!')
+		} catch (error) {
+			addLog(`Error during multi-send: ${error instanceof Error ? error.message : 'Unknown error'}`)
+		}
+	}
+
+	return (
+		<div className="container mx-auto py-8 px-4 max-w-4xl">
+			<div className="space-y-6">
+				{/* Header with Wallet Balance */}
+				<Card className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
 					<CardHeader>
 						<div className="flex items-center justify-between">
-							<CardTitle className="flex items-center gap-2">
-								<Network className="h-5 w-5" />
-								Network & Wallet Status
-							</CardTitle>
+							<div className="flex items-center gap-2">
+								<WalletIcon className="h-6 w-6" />
+								<CardTitle className="text-2xl">My Wallet</CardTitle>
+							</div>
 							<LocalAccountNetworkSwitch />
 						</div>
 					</CardHeader>
-					<CardContent className="space-y-3">
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<div className="space-y-2">
-								<div className="flex items-center justify-between">
-									<span className="text-sm font-medium">Network:</span>
-									<Badge variant="default">
-										{activeChain.data?.name}
-									</Badge>
+					<CardContent className="space-y-4">
+						{currentWalletClient ? (
+							<>
+								<div className="space-y-2">
+									<p className="text-sm opacity-90">Total Balance</p>
+									<div className="text-4xl font-bold">
+										${(
+											(ethBalance ? Number(ethBalance) / 1e18 * 3000 : 0) + 
+											(usdcBalance ? Number(usdcBalance) / 1e6 : 0)
+										).toFixed(2)} USD
+									</div>
 								</div>
-								<div className="flex items-center justify-between">
-									<span className="text-sm font-medium">Chain ID:</span>
-									<Badge variant="outline">{chainId}</Badge>
+								<div className="grid grid-cols-2 gap-4 pt-4">
+									<div className="bg-white/10 rounded-lg p-3">
+										<p className="text-sm opacity-90">ETH</p>
+										<p className="text-xl font-semibold">
+											{ethBalance ? `${(Number(ethBalance) / 1e18).toFixed(4)}` : '0.0000'}
+										</p>
+									</div>
+									<div className="bg-white/10 rounded-lg p-3">
+										<p className="text-sm opacity-90">USDC</p>
+										<p className="text-xl font-semibold">
+											{usdcBalance ? `${(Number(usdcBalance) / 1e6).toFixed(2)}` : '0.00'}
+										</p>
+									</div>
 								</div>
-								<div className="flex items-center justify-between">
-									<span className="text-sm font-medium">EIP-7702 Support:</span>
-									<Badge variant={isNetworkSupported ? "default" : "destructive"}>
-										{isNetworkSupported ? 'Supported' : 'Not Supported'}
-									</Badge>
+								<div className="flex gap-2 pt-2">
+									<Button 
+										className="flex-1 bg-white text-black hover:bg-gray-100"
+										onClick={() => setShowReceiveModal(true)}
+									>
+										<ArrowDownIcon className="mr-2 h-4 w-4" />
+										Receive
+									</Button>
+									<Button className="flex-1 bg-white text-black hover:bg-gray-100">
+										<Send className="mr-2 h-4 w-4" />
+										Send
+									</Button>
 								</div>
+							</>
+						) : (
+							<div className="text-center py-8">
+								<p className="text-white/80">Connect your wallet to continue</p>
 							</div>
-
-							<div className="space-y-2">
-								<div className="flex items-center justify-between">
-									<span className="text-sm font-medium">Wallet:</span>
-									<Badge variant={currentWalletClient ? "default" : "secondary"}>
-										{currentWalletClient ? 'Connected' : 'Not Connected'}
-									</Badge>
-								</div>
-								{currentWalletClient && (
-									<>
-										<div className="flex items-center justify-between">
-											<span className="text-sm font-medium">Address:</span>
-											<CopyableAddress
-												address={currentWalletClient.account?.address || ''}
-												chainId={chainId}
-											/>
-										</div>
-										<div className="flex items-center justify-between">
-											<span className="text-sm font-medium">ETH Balance:</span>
-											<Badge variant="outline">
-												{ethBalance ? `${(Number(ethBalance) / 1e18).toFixed(4)} ETH` : 'Loading...'}
-											</Badge>
-										</div>
-										<div className="flex items-center justify-between">
-											<span className="text-sm font-medium">USDC Balance:</span>
-											<Badge variant="outline">
-												{usdcBalance ? `${(Number(usdcBalance) / 1e6).toFixed(2)} USDC` : 'Loading...'}
-											</Badge>
-										</div>
-									</>
-								)}
-							</div>
-						</div>
+						)}
 					</CardContent>
 				</Card>
 
-				<Tabs defaultValue="wallet" className="w-full">
+				{/* Receive Modal */}
+				{showReceiveModal && currentWalletClient && (
+					<Card>
+						<CardHeader>
+							<div className="flex items-center justify-between">
+								<CardTitle>Receive Funds</CardTitle>
+								<Button
+									variant="ghost"
+									size="sm"
+									onClick={() => setShowReceiveModal(false)}
+								>
+									<X className="h-4 w-4" />
+								</Button>
+							</div>
+						</CardHeader>
+						<CardContent className="space-y-4">
+							<div className="flex justify-center">
+								<div className="bg-gray-100 p-4 rounded-lg">
+									<QrCode className="h-32 w-32 text-gray-400" />
+									<p className="text-xs text-center mt-2 text-gray-500">QR Code</p>
+								</div>
+							</div>
+							<div className="space-y-2">
+								<Label>Your Wallet Address</Label>
+								<div className="flex gap-2">
+									<Input
+										value={currentWalletClient.account?.address || ''}
+										readOnly
+										className="font-mono text-sm"
+									/>
+									<Button
+										size="icon"
+										variant="outline"
+										onClick={() => {
+											navigator.clipboard.writeText(currentWalletClient.account?.address || '')
+											addLog('Address copied to clipboard')
+										}}
+									>
+										<Copy className="h-4 w-4" />
+									</Button>
+								</div>
+							</div>
+							<Alert>
+								<AlertCircle className="h-4 w-4" />
+								<AlertDescription>
+									Send ETH or USDC to this address on {activeChain.data?.name}
+								</AlertDescription>
+							</Alert>
+						</CardContent>
+					</Card>
+				)}
+
+				<Tabs defaultValue="send" className="w-full">
 					<TabsList className="grid w-full grid-cols-3">
+						<TabsTrigger value="send">
+							<Send className="h-4 w-4 mr-2" />
+							Send
+						</TabsTrigger>
 						<TabsTrigger value="wallet">
 							<Key className="h-4 w-4 mr-2" />
-							Wallet Setup
-						</TabsTrigger>
-						<TabsTrigger value="transfer">
-							<DollarSign className="h-4 w-4 mr-2" />
-							USDC Transfers
+							Setup
 						</TabsTrigger>
 						<TabsTrigger value="hardware">
 							<Shield className="h-4 w-4 mr-2" />
-							Hardware Wallet
+							Hardware
 						</TabsTrigger>
 					</TabsList>
 
@@ -400,70 +524,120 @@ export default function Page() {
 						)}
 					</TabsContent>
 
-					{/* USDC Transfers Tab */}
-					<TabsContent value="transfer" className="space-y-6 mt-6">
+					{/* Send Tab */}
+					<TabsContent value="send" className="space-y-6 mt-6">
 						<Card>
 							<CardHeader>
 								<CardTitle className="flex items-center gap-2">
-									<Zap className="h-5 w-5" />
-									Gasless USDC Transfers
+									<Send className="h-5 w-5" />
+									Send Funds
 								</CardTitle>
 								<CardDescription>
-									Transfer USDC without paying gas fees using Circle's paymaster
+									Send ETH or USDC to multiple recipients
 								</CardDescription>
 							</CardHeader>
 							<CardContent className="space-y-4">
-								{!delegation ? (
+								{!currentWalletClient ? (
 									<Alert>
 										<AlertCircle className="h-4 w-4" />
 										<AlertDescription>
-											Please create a passkey delegation first to enable USDC transfers
+											Please connect your wallet to send funds
 										</AlertDescription>
 									</Alert>
 								) : (
 									<>
-										<div className="space-y-2">
-											<Label htmlFor="recipient">Recipient Address</Label>
-											<Input
-												id="recipient"
-												placeholder="0x..."
-												value={recipientAddress}
-												onChange={(e) => setRecipientAddress(e.target.value)}
-											/>
-										</div>
-
-										<div className="space-y-2">
-											<Label htmlFor="amount">Amount (USDC)</Label>
-											<Input
-												id="amount"
-												type="number"
-												placeholder="10"
-												value={usdcAmount}
-												onChange={(e) => setUsdcAmount(e.target.value)}
-											/>
-											<p className="text-xs text-muted-foreground">
-												Available: {usdcBalance ? `${(Number(usdcBalance) / 1e6).toFixed(2)} USDC` : 'Loading...'}
-											</p>
+										<div className="space-y-4">
+											{recipients.map((recipient, index) => (
+												<Card key={recipient.id} className="p-4">
+													<div className="space-y-3">
+														<div className="flex items-center justify-between">
+															<Label className="text-sm font-medium">Recipient {index + 1}</Label>
+															{recipients.length > 1 && (
+																<Button
+																	variant="ghost"
+																	size="sm"
+																	onClick={() => removeRecipient(recipient.id)}
+																>
+																	<X className="h-4 w-4" />
+																</Button>
+															)}
+														</div>
+														<Input
+															placeholder="Recipient address (0x...)"
+															value={recipient.address}
+															onChange={(e) => updateRecipient(recipient.id, 'address', e.target.value)}
+														/>
+														<div className="grid grid-cols-2 gap-2">
+															<Input
+																type="number"
+																placeholder="Amount"
+																value={recipient.amount}
+																onChange={(e) => updateRecipient(recipient.id, 'amount', e.target.value)}
+															/>
+															<Select
+																value={recipient.currency}
+																onValueChange={(value) => updateRecipient(recipient.id, 'currency', value as 'ETH' | 'USDC')}
+															>
+																<SelectTrigger>
+																	<SelectValue />
+																</SelectTrigger>
+																<SelectContent>
+																	<SelectItem value="USDC">USDC</SelectItem>
+																	<SelectItem value="ETH">ETH</SelectItem>
+																</SelectContent>
+															</Select>
+														</div>
+													</div>
+												</Card>
+											))}
 										</div>
 
 										<Button
-											onClick={handleCircleTransfer}
-											disabled={
-												circle7702TransferMutation.isPending ||
-												!recipientAddress ||
-												!usdcAmount ||
-												parseFloat(usdcAmount) <= 0
-											}
+											variant="outline"
+											onClick={addRecipient}
 											className="w-full"
 										>
-											{circle7702TransferMutation.isPending ? (
-												<>
-													<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-													Transferring...
-												</>
-											) : (
-												'Transfer USDC'
-											)}
+											<Plus className="mr-2 h-4 w-4" />
+											Add Recipient
+										</Button>
+
+										<Separator />
+
+										<div className="space-y-2">
+											<h4 className="font-medium">Summary</h4>
+											<div className="space-y-1 text-sm">
+												{recipients.filter(r => r.amount && parseFloat(r.amount) > 0).map((recipient, index) => (
+													<div key={recipient.id} className="flex justify-between">
+														<span className="text-muted-foreground">
+															Recipient {index + 1}: {recipient.address.substring(0, 10)}...
+														</span>
+														<span className="font-medium">
+															{recipient.amount} {recipient.currency}
+														</span>
+													</div>
+												))}
+											</div>
+										</div>
+
+										{delegation && (
+											<Alert>
+												<Zap className="h-4 w-4" />
+												<AlertDescription>
+													USDC transfers will be gasless using Circle's paymaster
+												</AlertDescription>
+											</Alert>
+										)}
+
+										<Button
+											onClick={handleMultiSend}
+											disabled={
+												!recipients.some(r => r.address && r.amount && parseFloat(r.amount) > 0)
+											}
+											className="w-full"
+											size="lg"
+										>
+											<Send className="mr-2 h-4 w-4" />
+											Send Funds
 										</Button>
 									</>
 								)}
@@ -527,50 +701,6 @@ export default function Page() {
 					</CardContent>
 				</Card>
 
-				{/* Info Section */}
-				<Card>
-					<CardHeader>
-						<CardTitle>Features</CardTitle>
-					</CardHeader>
-					<CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-						<div className="space-y-2">
-							<h4 className="font-medium flex items-center gap-2">
-								<Key className="h-4 w-4" />
-								Passkey Authentication
-							</h4>
-							<p className="text-muted-foreground">
-								Secure your wallet with biometric authentication using WebAuthn passkeys
-							</p>
-						</div>
-						<div className="space-y-2">
-							<h4 className="font-medium flex items-center gap-2">
-								<Network className="h-4 w-4" />
-								Multi-Chain Support
-							</h4>
-							<p className="text-muted-foreground">
-								Seamlessly switch between supported networks with unified account management
-							</p>
-						</div>
-						<div className="space-y-2">
-							<h4 className="font-medium flex items-center gap-2">
-								<Zap className="h-4 w-4" />
-								Gasless Transactions
-							</h4>
-							<p className="text-muted-foreground">
-								Transfer USDC without paying gas fees using Circle's paymaster integration
-							</p>
-						</div>
-						<div className="space-y-2">
-							<h4 className="font-medium flex items-center gap-2">
-								<Shield className="h-4 w-4" />
-								Hardware Wallet Support
-							</h4>
-							<p className="text-muted-foreground">
-								Connect Ledger devices for enhanced security and cold storage capabilities
-							</p>
-						</div>
-					</CardContent>
-				</Card>
 			</div>
 		</div>
 	)

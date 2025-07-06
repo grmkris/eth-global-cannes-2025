@@ -72,9 +72,9 @@ export const AvailComponent = () => {
           <button
             onClick={async () => {
               const bridgeResult = await nexusSDK?.bridge({
-                token: "ETH",
-                amount: 0.01,
-                chainId: 421614, // to Arbitrum sepolia
+                token: "USDC",
+                amount: 1,
+                chainId: 11155420, // to Optimism sepolia
               });
               console.log(bridgeResult);
             }}

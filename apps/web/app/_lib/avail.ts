@@ -30,7 +30,7 @@ export const initializeAvail = async (provider: EthereumProvider) => {
 
   // Or initialize with specific network environment
   const nexusSdk = new NexusSDK({
-    network: "mainnet", // Testnet
+    network: "testnet", // Testnet
   });
   await nexusSdk.initialize(provider);
 

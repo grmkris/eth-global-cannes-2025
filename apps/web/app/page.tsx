@@ -11,8 +11,6 @@ export default function Page() {
 	const { isConnected, address } = useAccount();
 
 	// These would typically come from environment variables or configuration
-	const usdcAddress = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"; // Arbitrum Sepolia USDC
-	const paymasterAddress = "0x3BA9A96eE3eFf3A69E2B18886AcF52027EFF8966"; // Replace with actual paymaster address
 	const recipientAddress = "0x219B10CD3e58da840bB10AF6cae9240ea4f404A2"; // Replace with actual recipient
 
 	return (
@@ -113,8 +111,6 @@ export default function Page() {
 						</div>
 						<div className="flex justify-center">
 							<CirclePaymasterTransferFull
-								usdcAddress={usdcAddress}
-								paymasterAddress={paymasterAddress}
 								recipientAddress={recipientAddress}
 							/>
 						</div>

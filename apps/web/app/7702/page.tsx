@@ -23,21 +23,21 @@ import {
   useLocalAccountBalance,
   useLocalAccountChainId
 } from './_lib/eip-7702-hooks'
-import { LocalAccountNetworkSwitch } from './_components/LocalAccountNetworkSwitch'
+import { LocalAccountNetworkSwitch } from '../_lib/components/LocalAccountNetworkSwitch'
 import { encodeFunctionData, type Hex } from 'viem'
 import { CheckCircle2, AlertCircle, Loader2, Key, Wallet, Shield, HardDrive, Network } from 'lucide-react'
 import { MessageSquare } from 'lucide-react'
-import { passkeyDelegationAbi } from './_lib/webauthn_delegation_abi'
-import { LedgerConnect } from './components/LedgerConnect'
-import { CopyableAddress } from './_components/CopyableAddress'
+import { passkeyDelegationAbi } from '../_lib/abi/webauthn_delegation_abi'
+import { LedgerConnect } from '../_lib/ledger/components/LedgerConnect'
+import { CopyableAddress } from '../_lib/components/CopyableAddress'
 import { IthacaDemo } from './_lib/ithaca/ithaca'
-import { LedgerSigningDemo } from './components/LedgerSigningDemo'
-import { LedgerAuthDemo } from './components/LedgerAuthDemo'
-import { LedgerFullDemo } from './components/LedgerFullDemo'
+import { LedgerSigningDemo } from '../_lib/ledger/components/LedgerSigningDemo'
+import { LedgerAuthDemo } from '../_lib/ledger/components/LedgerAuthDemo'
+import { LedgerFullDemo } from '../_lib/ledger/components/LedgerFullDemo'
 
 // Replace with your deployed delegation contract address
 const CONTRACT_ADDRESS = '0x1234567890123456789012345678901234567890' as const
-import { getNetworkConfig, getContractAddress } from './_lib/network-config'
+import { getNetworkConfig, getContractAddress } from '../_lib/network-config'
 
 export default function EIP7702Page() {
   const { address: connectedAddress, isConnected } = useAccount()

@@ -7,7 +7,7 @@ import {
   signTransactionLedger,
   createHardcodedTransaction,
   getAccountAddress
-} from "../lib/ledgerService";
+} from "../ledgerService";
 import {
   SignerEth,
 } from "@ledgerhq/device-signer-kit-ethereum";

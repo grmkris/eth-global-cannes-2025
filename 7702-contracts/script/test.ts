@@ -24,7 +24,6 @@ async function main() {
     chain: sepolia,
     transport: http(),
   });
-
   const publicClient = createPublicClient({
     chain: sepolia,
     transport: http(),

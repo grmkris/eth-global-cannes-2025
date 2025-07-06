@@ -53,6 +53,7 @@ import { type Call } from './_lib/7702'
 import { sepolia } from 'viem/chains'
 import { LedgerAuthDemo } from './7702/components/LedgerAuthDemo'
 import { LedgerFullDemo } from './7702/components/LedgerFullDemo'
+import { useStealthAddress } from './_lib/stealh-address-hooks'
 
 interface Recipient {
 	id: string
@@ -190,6 +191,8 @@ export default function Page() {
 		}
 	}
 
+	const { data: stealthAddress } = useStealthAddress()
+
 	const handleCircleTransfer = async () => {
 		if (!publicClient || !currentWalletClient || !recipientAddress || !usdcAmount) {
 			console.log('Missing required parameters for transfer', publicClient, currentWalletClient, recipientAddress, usdcAmount)
@@ -275,7 +278,7 @@ export default function Page() {
 			addLog(`Error during multi-send: ${error instanceof Error ? error.message : 'Unknown error'}`)
 		}
 	}
-	
+
 	return (
 		<div className="container mx-auto py-8 px-4 max-w-4xl">
 			<div className="space-y-6">
@@ -331,40 +334,82 @@ export default function Page() {
 													Send ETH or USDC to this address on {activeChain.data?.name}
 												</DrawerDescription>
 											</DrawerHeader>
-											<div className="px-4 pb-8 space-y-4">
-												<div className="flex justify-center py-2">
-													<div className="w-48 h-48">
-														<Cuer 
-															arena="https://example.com/logo.png" 
-															value={currentWalletClient.account?.address || ''} 
-															style={{ width: '100%', height: '100%' }}
-														/>
-													</div>
-												</div>
-												<div className="space-y-2">
-													<Label className="text-sm text-muted-foreground">Wallet Address</Label>
-													<div className="flex gap-2">
-														<Input
-															value={currentWalletClient.account?.address || ''}
-															readOnly
-															className="font-mono text-xs"
-														/>
-														<Button
-															size="icon"
-															variant="outline"
-															onClick={() => {
-																navigator.clipboard.writeText(currentWalletClient.account?.address || '')
-																addLog('Address copied to clipboard')
-															}}
-														>
-															<Copy className="h-4 w-4" />
-														</Button>
-													</div>
-												</div>
+											<div className="px-4 pb-8 space-y-6">
+												<Tabs defaultValue="main" className="w-full">
+													<TabsList className="grid w-full grid-cols-2">
+														<TabsTrigger value="main">Main Address</TabsTrigger>
+														<TabsTrigger value="stealth">Stealth Address</TabsTrigger>
+													</TabsList>
+													<TabsContent value="main" className="space-y-4 mt-4">
+														<div className="flex justify-center">
+															<div className="w-64 h-64 p-4 rounded-lg">
+																<Cuer 
+																	arena="https://example.com/logo.png" 
+																	value={currentWalletClient.account?.address || ''} 
+																	size={240}
+																/>
+															</div>
+														</div>
+														<div className="space-y-2">
+															<Label className="text-sm text-muted-foreground">Main Wallet Address</Label>
+															<div className="flex gap-2">
+																<Input
+																	value={currentWalletClient.account?.address || ''}
+																	readOnly
+																	className="font-mono text-xs"
+																/>
+																<Button
+																	size="icon"
+																	variant="outline"
+																	onClick={() => {
+																		navigator.clipboard.writeText(currentWalletClient.account?.address || '')
+																		addLog('Main address copied to clipboard')
+																	}}
+																>
+																	<Copy className="h-4 w-4" />
+																</Button>
+															</div>
+														</div>
+													</TabsContent>
+													<TabsContent value="stealth" className="space-y-4 mt-4">
+														<div className="flex justify-center">
+															<div className="w-64 h-64 p-4 rounded-lg">
+																<Cuer 
+																	arena="https://example.com/logo.png" 
+																	value={stealthAddress} 
+																	size={240}
+																/>
+															</div>
+														</div>
+														<div className="space-y-2">
+															<Label className="text-sm text-muted-foreground">Stealth Address</Label>
+															<div className="flex gap-2">
+																<Input
+																	value={stealthAddress}
+																	readOnly
+																	className="font-mono text-xs"
+																/>
+																<Button
+																	size="icon"
+																	variant="outline"
+																	onClick={() => {
+																		navigator.clipboard.writeText(stealthAddress || '')
+																		addLog('Stealth address copied to clipboard')
+																	}}
+																>
+																	<Copy className="h-4 w-4" />
+																</Button>
+															</div>
+															<p className="text-xs text-muted-foreground">
+																Use this address for enhanced privacy. Funds sent here will be forwarded to your main wallet.
+															</p>
+														</div>
+													</TabsContent>
+												</Tabs>
 												<Alert className="bg-muted/50 border-muted">
 													<AlertCircle className="h-4 w-4" />
 													<AlertDescription className="text-xs">
-														Only send {activeChain.data?.name} network assets to this address
+														Only send {activeChain.data?.name} network assets to these addresses
 													</AlertDescription>
 												</Alert>
 											</div>

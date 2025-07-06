@@ -21,6 +21,7 @@
 		"@noble/curves": "^1.9.2",
 		"@reown/appkit": "^1.7.12",
 		"@reown/appkit-adapter-wagmi": "^1.7.12",
+		"@scopelift/stealth-address-sdk": "1.0.0-beta.2",
 		"@tanstack/react-query": "^5.81.5",
 		"@wagmi/core": "^2.17.3",
 		"@workspace/ui": "workspace:*",

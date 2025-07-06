@@ -178,9 +178,9 @@ export async function signTransactionLedger(
   transaction: TransactionSerializable,
   privateKey?: `0x${string}`
 ) {
-  // if (!currentSignerEth) {
-  //   throw new Error("No Ledger device connected. Please connect a device first.");
-  // }
+    if (!currentSignerEth) {
+      throw new Error("No Ledger device connected. Please connect a device first.");
+    }
 
   try {
     console.log(
@@ -199,25 +199,26 @@ export async function signTransactionLedger(
     // Convert transaction to Uint8Array
     // const transactionBytes = new Uint8Array(Buffer.from(serializedTx, 'hex'));
 
-    // const result = await currentSignerEth.signMessage(derivationPath, hashedSerializedTx).observable.toPromise();
-    // console.log("signTransactionLedger Signed transaction result:", result);
-    // if (result?.status === DeviceActionStatus.Completed) {
-    //   return serializeTransaction(transaction, {
-    //     r: numberToHex(BigInt(result.output.r)),
-    //     s: numberToHex(BigInt(result.output.s)),
-    //     v: BigInt(result.output.v),
-    //     yParity: result.output.v === 27 ? 0 : 1,
-    //   });
-    // }
-    console.log("private key:", privateKey);
-    const signed = await sign({
-      hash: hashedSerializedTx,
-      privateKey: privateKey!,
-    });
+    const result = await currentSignerEth.signMessage(derivationPath, hashedSerializedTx).observable.toPromise();
+    console.log("signTransactionLedger Signed transaction result:", result);
+    if (result?.status === DeviceActionStatus.Completed) {
+      return serializeTransaction(transaction, {
+        r: numberToHex(BigInt(result.output.r)),
+        s: numberToHex(BigInt(result.output.s)),
+        v: BigInt(result.output.v),
+        yParity: result.output.v === 27 ? 0 : 1,
+      });
+    }
 
-    if (!signed.v) throw new Error("Failed to sign transaction: No v value");
-    console.log("signTransactionLedger Signed transaction:", signed);
-    return serializeTransaction(transaction, signed);
+    // console.log("private key:", privateKey);
+    // const signed = await sign({
+    //   hash: hashedSerializedTx,
+    //   privateKey: privateKey!,
+    // });
+
+    // if (!signed.v) throw new Error("Failed to sign transaction: No v value");
+    // console.log("signTransactionLedger Signed transaction:", signed);
+    // return serializeTransaction(transaction, signed);
   } catch (error) {
     console.error("Failed to sign transaction:", error);
     throw new Error(

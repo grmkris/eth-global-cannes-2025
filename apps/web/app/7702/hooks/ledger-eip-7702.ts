@@ -1,7 +1,7 @@
 import { type Address, type Hex, type WalletClient, type Chain, type PublicClient, type TransactionReceipt, type TransactionSerializable } from 'viem'
 import { createWalletClient, http, createPublicClient } from 'viem'
-import { 
-  signDelegationAuthorization, 
+import {
+  signDelegationAuthorization,
   getAccountAddress,
   getCurrentSignerEth,
   getCurrentSessionId,
@@ -32,17 +32,17 @@ export async function createLedgerAuthorization({
     if (!signerEth) {
       throw new Error('No Ledger device connected. Please connect a device first.')
     }
-    
+
     // Get the Ledger address
     const ledgerAddress = await getAccountAddress()
-    
+
     // Sign the delegation authorization using the existing service
     const signature = await signDelegationAuthorizationRaw(
       chainId,
       contractAddress,
       nonce
     )
-    
+
     // The signature returned from signDelegationAuthorization should have r, s, v
     // Format it according to EIP-7702 requirements
     const authorization = {
@@ -55,7 +55,7 @@ export async function createLedgerAuthorization({
       v: BigInt(signature.v),
       yParity: signature.v - 27 === 0 ? 0 : 1,
     }
-    
+
     return authorization
   } catch (error) {
     console.error('Failed to create Ledger authorization:', error)
@@ -89,7 +89,7 @@ export function createLedgerWalletClient({
       throw new Error('Ledger signing not implemented in this context')
     },
   }
-  
+
   return createWalletClient({
     account,
     chain,
@@ -108,20 +108,21 @@ export async function createLedgerWalletClientWithAuth({
   contractAddress: Address
 }): Promise<{ walletClient: WalletClient; authorization: any }> {
   const address = await getAccountAddress()
-  
+  console.log("createLedgerWalletClientWithAuth Address:", address);
+
   // Create the authorization
   const authorization = await createLedgerAuthorization({
     contractAddress,
     chainId: chain.id,
     chain,
   })
-  
+
   // Create wallet client
   const walletClient = createLedgerWalletClient({
     address: address as Address,
     chain,
   })
-  
+
   return { walletClient, authorization }
 }
 function bigIntReplacer(_key: string, value: any): any {
@@ -151,27 +152,35 @@ export async function sendLedgerTransactionWithAuthorization({
       chain,
       transport: http(),
     })
-    
+
+    const currentNonce = await publicClient.getTransactionCount({
+      address: to,
+    });
+
     console.log("sendLedgerTransactionWithAuthorization Authorization:", authorization);
     // Build the transaction with authorization list
-    const transaction : TransactionSerializable = {
+    const transaction: TransactionSerializable = {
       to,
       value,
       data,
       authorizationList: [authorization],
-      chainId: chain.id
+      chainId: chain.id,
+      gas: 500000n,
+      maxFeePerGas: 3500000n,
+      maxPriorityFeePerGas: 3000000n,
+      nonce: currentNonce,
     }
-    
+
     // Sign the transaction using Ledger
     console.log("sendLedgerTransactionWithAuthorization Signing transaction:", transaction);
     const signedTx = await signTransactionLedger(transaction)
-    
+
     console.log("sendLedgerTransactionWithAuthorizationSigned transaction:", signedTx);
     // Send the raw transaction
     const hash = await publicClient.sendRawTransaction({
-      serializedTransaction: signedTx
+      serializedTransaction: signedTx as `0x${string}`
     })
-    
+
     return hash
   } catch (error) {
     console.error('Failed to send transaction with authorization:', error)
@@ -193,7 +202,7 @@ export async function waitForLedgerTransaction({
     chain,
     transport: http(),
   })
-  
+
   return publicClient.waitForTransactionReceipt({
     hash,
   })

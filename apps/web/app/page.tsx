@@ -483,9 +483,6 @@ export default function Page() {
 									Connect and manage your Ledger hardware wallet
 								</CardDescription>
 							</CardHeader>
-							<CardContent>
-								<LedgerConnect />
-							</CardContent>
 						</Card>
 
 						<Card>

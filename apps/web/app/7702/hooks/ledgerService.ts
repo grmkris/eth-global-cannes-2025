@@ -203,8 +203,8 @@ export async function signTransactionLedger(
     console.log("signTransactionLedger Signed transaction result:", result);
     if (result?.status === DeviceActionStatus.Completed) {
       return serializeTransaction(transaction, {
-        r: numberToHex(BigInt(result.output.r)),
-        s: numberToHex(BigInt(result.output.s)),
+        r: numberToHex(BigInt(result.output.r.slice(2)), { size: 32 }),
+        s: numberToHex(BigInt(result.output.s.slice(2)), { size: 32 }),
         v: BigInt(result.output.v),
         yParity: result.output.v === 27 ? 0 : 1,
       });

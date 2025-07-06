@@ -284,7 +284,7 @@ export async function executeWithPasskey({
       abi: passkeyDelegationAbi,
       functionName: 'getNonce',
       args: [eoaAccount.address],
-    }))
+    })) + 1n
     
     console.log('nonce', nonce)
     console.log('chainId', walletClient.chain?.id)

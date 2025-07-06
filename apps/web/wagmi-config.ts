@@ -14,6 +14,31 @@ if (!projectId) {
 
 export const networks = [zircuitGarfieldTestnet, sepolia]
 
+import { createConnector, type CreateConnectorFn } from '@wagmi/core'
+
+export type LedgerConnectorParameters = {}
+
+export function ledgerConnector(parameters: LedgerConnectorParameters = {}): CreateConnectorFn {
+  return createConnector((config) => ({
+    id: 'fooBarBaz',
+    name: 'Foo Bar Baz',
+    type: 'fooBarBaz',
+    connect: async () => ({ accounts: [], chainId: 1 }),
+    disconnect: async () => {},
+    getAccounts: async () => [],
+    getChainId: async () => 1,
+    getProvider: async () => null,
+    isAuthorized: async () => false,
+    switchChain: async ({ chainId }) => config.chains.find(chain => chain.id === chainId) || config.chains[0],
+    watchAccount: () => () => {},
+    watchChainId: () => () => {},
+    watchDisconnect: () => () => {},
+    onAccountsChanged: () => {},
+    onChainChanged: () => {},
+    onDisconnect: () => {},
+  }))
+}
+
 //Set up the Wagmi Adapter (Config)
 export const wagmiAdapter = new WagmiAdapter({
   storage: createStorage({
@@ -21,7 +46,15 @@ export const wagmiAdapter = new WagmiAdapter({
   }),
   ssr: true,
   projectId,
-  networks
+  networks,
+  connectors: [
+      ledgerConnector({
+        chains: networks,
+        options: {
+          projectId,
+        },
+      })
+  ],
 })
 
 export const wagmiConfig = wagmiAdapter.wagmiConfig

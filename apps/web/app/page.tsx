@@ -1,5 +1,5 @@
 'use client'
-
+import { Cuer } from 'cuer'
 import { useState } from 'react'
 import { Button } from "@workspace/ui/components/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card"
@@ -11,6 +11,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@workspace/ui/componen
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@workspace/ui/components/select"
+import {
+	Drawer,
+	DrawerClose,
+	DrawerContent,
+	DrawerDescription,
+	DrawerFooter,
+	DrawerHeader,
+	DrawerTitle,
+	DrawerTrigger,
+} from "@workspace/ui/components/drawer"
 import {
 	CheckCircle2, AlertCircle, Loader2, Key, Shield,
 	Network, MessageSquare, Zap, DollarSign, Send, WalletIcon,
@@ -55,7 +65,6 @@ export default function Page() {
 	const [logs, setLogs] = useState<Array<{ timestamp: string; message: string | React.ReactNode }>>([])
 	const [recipientAddress, setRecipientAddress] = useState<string>('')
 	const [usdcAmount, setUsdcAmount] = useState<string>('10')
-	const [showReceiveModal, setShowReceiveModal] = useState(false)
 	const [recipients, setRecipients] = useState<Recipient[]>([
 		{ id: '1', address: '', amount: '', currency: 'USDC' }
 	])
@@ -266,7 +275,7 @@ export default function Page() {
 			addLog(`Error during multi-send: ${error instanceof Error ? error.message : 'Unknown error'}`)
 		}
 	}
-
+	
 	return (
 		<div className="container mx-auto py-8 px-4 max-w-4xl">
 			<div className="space-y-6">
@@ -307,18 +316,65 @@ export default function Page() {
 										</p>
 									</div>
 								</div>
-								<div className="flex gap-2 pt-2">
-									<Button 
-										className="flex-1 bg-white text-black hover:bg-gray-100"
-										onClick={() => setShowReceiveModal(true)}
-									>
-										<ArrowDownIcon className="mr-2 h-4 w-4" />
-										Receive
-									</Button>
-									<Button className="flex-1 bg-white text-black hover:bg-gray-100">
-										<Send className="mr-2 h-4 w-4" />
-										Send
-									</Button>
+								<div className="pt-2">
+									<Drawer>
+										<DrawerTrigger asChild>
+											<Button className="w-full bg-white text-black hover:bg-gray-100">
+												<ArrowDownIcon className="mr-2 h-4 w-4" />
+												Receive
+											</Button>
+										</DrawerTrigger>
+										<DrawerContent>
+											<DrawerHeader>
+												<DrawerTitle>Receive Funds</DrawerTitle>
+												<DrawerDescription>
+													Send ETH or USDC to this address on {activeChain.data?.name}
+												</DrawerDescription>
+											</DrawerHeader>
+											<div className="px-4 pb-8 space-y-4">
+												<div className="flex justify-center py-2">
+													<div className="w-48 h-48">
+														<Cuer 
+															arena="https://example.com/logo.png" 
+															value={currentWalletClient.account?.address || ''} 
+															style={{ width: '100%', height: '100%' }}
+														/>
+													</div>
+												</div>
+												<div className="space-y-2">
+													<Label className="text-sm text-muted-foreground">Wallet Address</Label>
+													<div className="flex gap-2">
+														<Input
+															value={currentWalletClient.account?.address || ''}
+															readOnly
+															className="font-mono text-xs"
+														/>
+														<Button
+															size="icon"
+															variant="outline"
+															onClick={() => {
+																navigator.clipboard.writeText(currentWalletClient.account?.address || '')
+																addLog('Address copied to clipboard')
+															}}
+														>
+															<Copy className="h-4 w-4" />
+														</Button>
+													</div>
+												</div>
+												<Alert className="bg-muted/50 border-muted">
+													<AlertCircle className="h-4 w-4" />
+													<AlertDescription className="text-xs">
+														Only send {activeChain.data?.name} network assets to this address
+													</AlertDescription>
+												</Alert>
+											</div>
+											<DrawerFooter>
+												<DrawerClose asChild>
+													<Button variant="outline">Close</Button>
+												</DrawerClose>
+											</DrawerFooter>
+										</DrawerContent>
+									</Drawer>
 								</div>
 							</>
 						) : (
@@ -329,57 +385,6 @@ export default function Page() {
 					</CardContent>
 				</Card>
 
-				{/* Receive Modal */}
-				{showReceiveModal && currentWalletClient && (
-					<Card>
-						<CardHeader>
-							<div className="flex items-center justify-between">
-								<CardTitle>Receive Funds</CardTitle>
-								<Button
-									variant="ghost"
-									size="sm"
-									onClick={() => setShowReceiveModal(false)}
-								>
-									<X className="h-4 w-4" />
-								</Button>
-							</div>
-						</CardHeader>
-						<CardContent className="space-y-4">
-							<div className="flex justify-center">
-								<div className="bg-gray-100 p-4 rounded-lg">
-									<QrCode className="h-32 w-32 text-gray-400" />
-									<p className="text-xs text-center mt-2 text-gray-500">QR Code</p>
-								</div>
-							</div>
-							<div className="space-y-2">
-								<Label>Your Wallet Address</Label>
-								<div className="flex gap-2">
-									<Input
-										value={currentWalletClient.account?.address || ''}
-										readOnly
-										className="font-mono text-sm"
-									/>
-									<Button
-										size="icon"
-										variant="outline"
-										onClick={() => {
-											navigator.clipboard.writeText(currentWalletClient.account?.address || '')
-											addLog('Address copied to clipboard')
-										}}
-									>
-										<Copy className="h-4 w-4" />
-									</Button>
-								</div>
-							</div>
-							<Alert>
-								<AlertCircle className="h-4 w-4" />
-								<AlertDescription>
-									Send ETH or USDC to this address on {activeChain.data?.name}
-								</AlertDescription>
-							</Alert>
-						</CardContent>
-					</Card>
-				)}
 
 				<Tabs defaultValue="send" className="w-full">
 					<TabsList className="grid w-full grid-cols-3">

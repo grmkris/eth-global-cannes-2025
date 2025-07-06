@@ -12,9 +12,7 @@ contract DeployWebAuthnScript is Script {
         // address announcerAddress, address registryAddress
 
         uint256 deployerPrivateKey = vm.envUint("OWNER_PRIVATE_KEY");
-        address announcerAddress = vm.envAddress("ERC5564_ANNOUNCER");
-        address registryAddress = vm.envAddress("ERC6538_REGISTRY");
-
+        
         vm.startBroadcast(deployerPrivateKey);
 
         // Deploy fallback P256 verifier
@@ -26,9 +24,7 @@ contract DeployWebAuthnScript is Script {
         address precompile = address(0); // No precompile on most test networks
         WebAuthnDelegation webAuthnDelegation = new WebAuthnDelegation(
             precompile,
-            address(fallbackVerifier),
-            announcerAddress,
-            registryAddress
+            address(fallbackVerifier)
         );
 
         vm.stopBroadcast();

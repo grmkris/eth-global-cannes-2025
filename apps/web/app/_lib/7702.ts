@@ -278,14 +278,14 @@ export async function executeWithPasskey({
       chain: walletClient.chain,
       transport: http(),
     })
-    
+
     const nonce = (await publicClient.readContract({
       address: networkConfigs[walletClient.chain?.id ?? 0]?.webAuthnDelegationAddress ?? '0x0000000000000000000000000000000000000000',
       abi: passkeyDelegationAbi,
       functionName: 'getNonce',
       args: [eoaAccount.address],
-    })) + 4n
-
+    }))
+    
     console.log('nonce', nonce)
     console.log('chainId', walletClient.chain?.id)
     if (!walletClient.account?.address) {
@@ -304,18 +304,18 @@ export async function executeWithPasskey({
         nonce,
       ]
     )
-
+    
     // Hash the message
     const messageHash = keccak256(messageToSign)
-
+    
     addLog?.('Signing transaction with passkey...')
-
+    
     // Sign with WebAuthn
     const { signature, webauthn } = await webauthnSign({
       hash: messageHash,
       credentialId: storedCredential.id,
     })
-
+    
     // Extract r and s from signature
     let r: bigint, s: bigint
     if (typeof signature === 'string') {
@@ -327,14 +327,14 @@ export async function executeWithPasskey({
       console.log(signature)
       throw new Error('Invalid signature format')
     }
-
+    
     // Extract client data fields (everything after challenge)
     let clientDataFields = ''
     if (webauthn.clientDataJSON) {
       const challengeEnd = webauthn.clientDataJSON.indexOf('",') + 2
       clientDataFields = webauthn.clientDataJSON.slice(challengeEnd, -1) // Remove closing }
     }
-
+    
     // Encode WebAuthn signature data according to the contract's expected format
     const webAuthnSignature = encodeAbiParameters(
       parseAbiParameters('bytes authenticatorData, string clientDataFields, uint256 r, uint256 s'),
@@ -345,9 +345,9 @@ export async function executeWithPasskey({
         s
       ]
     )
-
+    
     addLog?.('Sending transaction through delegated EOA...')
-
+    
     // ========== PASSKEY SIGNATURE IMPLEMENTATION ==========
     // The WebAuthn signature has been created using the passkey!
     // In a production implementation with the WebAuthnDelegation contract:
@@ -360,22 +360,12 @@ export async function executeWithPasskey({
       account: eoaAccount,
       chain: walletClient.chain,
     })
-    //
-    // The contract will:
-    // 1. Verify the WebAuthn signature using the P256 library
-    // 2. Check authenticator flags (user presence)
-    // 3. Verify the signature matches the stored public key
-    // 4. Execute the calls if signature is valid
-    //
-    // For this demo with the simple Delegation contract,
-    // we'll execute directly through the EOA but show the signature was created
-
-    // just construct a https link without the TxHashLink component   
+    
     const txHashLink = `https://${walletClient.chain?.name}.etherscan.io/tx/${hash}`
     addLog?.(`Transaction executed: ${txHashLink}`)
     addLog?.('Transaction completed using passkey signature!')
     addLog?.('Signature: r=' + r.toString(16).slice(0, 8) + '..., s=' + s.toString(16).slice(0, 8) + '...')
-
+    localStorage.setItem(`nonce-${eoaAccount.address}-${walletClient.chain?.id}`, nonce.toString())
     return hash
   } catch (error) {
     console.error('Failed to execute with passkey:', error)

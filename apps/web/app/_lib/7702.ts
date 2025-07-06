@@ -388,7 +388,7 @@ export function getDelegationStatus() {
     return null
   }
 
-  const { credential, walletType } = storedData
+  const { credential } = storedData
 
   // Note: WebAuthn account needs to be recreated when needed
   // since we can't serialize the full account object
@@ -397,7 +397,6 @@ export function getDelegationStatus() {
     passkeyId: credential?.id,
     webAuthnAccount: null, // Will be recreated when needed
     credential,
-    walletType: walletType || 'local', // Default to 'local' for backward compatibility
   }
 }
 

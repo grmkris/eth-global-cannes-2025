@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { useLedger } from '../hooks/useLedger'
 import { Button } from '@workspace/ui/components/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@workspace/ui/components/card'
 import { Alert, AlertDescription } from '@workspace/ui/components/alert'
@@ -9,11 +8,12 @@ import { Input } from '@workspace/ui/components/input'
 import { Label } from '@workspace/ui/components/label'
 import { Loader2, Send, CheckCircle, XCircle, Shield, Wallet } from 'lucide-react'
 import { useChains, useBalance } from 'wagmi'
-import { getContractAddress, networkConfigs } from '../_lib/network-config'
 import { createLedgerAuthorization, sendLedgerTransactionWithAuthorization, waitForLedgerTransaction } from '../hooks/ledger-eip-7702'
 import { sepolia } from 'viem/chains'
 import { type Hex, encodeFunctionData, parseEther, formatEther } from 'viem'
-import { passkeyDelegationAbi } from '../_lib/webauthn_delegation_abi'
+import { passkeyDelegationAbi } from '../../_lib/abi/webauthn_delegation_abi'
+import { networkConfigs } from '@/app/_lib/network-config'
+import { useLedger } from '../hooks/useLedger'
 
 export function LedgerFullDemo() {
   const { 
@@ -24,6 +24,8 @@ export function LedgerFullDemo() {
     connect, 
     disconnect, 
   } = useLedger()
+
+  console.log('ledger full demo accountAddress', accountAddress)
   
   const [step, setStep] = useState<'connect' | 'authorize' | 'execute'>('connect')
   const [authorization, setAuthorization] = useState<any>(null)
@@ -138,7 +140,7 @@ export function LedgerFullDemo() {
       const initializeData = encodeFunctionData({
         abi: passkeyDelegationAbi,
         functionName: 'initialize',
-        args: [dummyPubKeyX, dummyPubKeyY],
+        args: [accountAddress as Hex, dummyPubKeyX, dummyPubKeyY],
       })
       
       // Send transaction with authorization to initialize the delegation contract

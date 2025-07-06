@@ -7,7 +7,7 @@ import {
   getCurrentSessionId,
   signDelegationAuthorizationRaw,
   signTransactionLedger,
-} from '../lib/ledgerService'
+} from './ledgerService'
 
 export interface LedgerAuthorizationParams {
   contractAddress: Address

@@ -6,10 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@work
 import { Badge } from '@workspace/ui/components/badge'
 import { ScrollArea } from '@workspace/ui/components/scroll-area'
 import { Shield, Network, MessageSquare } from 'lucide-react'
-import { LedgerConnect } from '../_lib/ledger/components/LedgerConnect'
-import { LedgerSigningDemo } from '../_lib/ledger/components/LedgerSigningDemo'
-import { LedgerAuthDemo } from '../_lib/ledger/components/LedgerAuthDemo'
-import { LedgerFullDemo } from '../_lib/ledger/components/LedgerFullDemo'
+import { LedgerConnect } from './components/LedgerConnect'
+import { LedgerAuthDemo } from './components/LedgerAuthDemo'
+import { LedgerFullDemo } from './components/LedgerFullDemo'
 
 export default function EIP7702Page() {
   const chainId = useChainId()
@@ -96,7 +95,6 @@ export default function EIP7702Page() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <LedgerSigningDemo />
               <LedgerAuthDemo />
               <div className="mt-6">
                 <LedgerFullDemo />

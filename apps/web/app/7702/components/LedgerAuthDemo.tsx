@@ -7,11 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@work
 import { Alert, AlertDescription } from '@workspace/ui/components/alert'
 import { Loader2, Send, CheckCircle, XCircle, Shield } from 'lucide-react'
 import { useChains } from 'wagmi'
-import { getContractAddress, networkConfigs } from '../_lib/network-config'
+import { getContractAddress, networkConfigs } from '@/app/_lib/network-config'
 import { createLedgerAuthorization, sendLedgerTransactionWithAuthorization, waitForLedgerTransaction } from '../hooks/ledger-eip-7702'
 import { sepolia } from 'viem/chains'
 import { type Hex, encodeFunctionData } from 'viem'
-import { passkeyDelegationAbi } from '../_lib/webauthn_delegation_abi'
+import { passkeyDelegationAbi } from '@/app/_lib/abi/webauthn_delegation_abi'
 
 export function LedgerAuthDemo() {
   const { 
@@ -82,7 +82,7 @@ export function LedgerAuthDemo() {
       const initializeData = encodeFunctionData({
         abi: passkeyDelegationAbi,
         functionName: 'initialize',
-        args: [dummyPubKeyX, dummyPubKeyY],
+        args: [accountAddress as Hex, dummyPubKeyX, dummyPubKeyY],
       })
       
       console.log("Sending transaction with authorization:", {

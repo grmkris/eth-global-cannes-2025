@@ -36,12 +36,11 @@ import {
 import { getNetworkConfig, getContractAddress } from './_lib/network-config'
 import { CopyableAddress } from './_lib/components/CopyableAddress'
 import { LocalAccountNetworkSwitch } from './_lib/components/LocalAccountNetworkSwitch'
-import { LedgerConnect } from './_lib/ledger/components/LedgerConnect'
-import { LedgerAuthDemo } from './_lib/ledger/components/LedgerAuthDemo'
-import { LedgerFullDemo } from './_lib/ledger/components/LedgerFullDemo'
 import { http, createPublicClient, type Address } from 'viem'
 import { type Call } from './_lib/7702'
 import { sepolia } from 'viem/chains'
+import { LedgerAuthDemo } from './7702/components/LedgerAuthDemo'
+import { LedgerFullDemo } from './7702/components/LedgerFullDemo'
 
 export default function Page() {
 	const [logs, setLogs] = useState<Array<{ timestamp: string; message: string | React.ReactNode }>>([])
